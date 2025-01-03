@@ -29,12 +29,12 @@ inductive Flean.Float [C : FloatCfg] where
   | normal : Bool → ∀ e m, ValidNormal e m → Float
   | subnormal : Bool → ∀ m, m < C.prec → Float
 
-def to_sign_exp_mantissa [C : FloatCfg] (q : ℚ) : FloatRep :=
+def round_down [C : FloatCfg] (q : ℚ) : FloatRep :=
   let exp := Int.log 2 |q|
   let mantissa := ⌊(|q| * 2^(-exp) - 1) * C.prec⌋
   ⟨q < 0, exp, mantissa.natAbs⟩
 
-def to_sign_exp_mantissa' [C : FloatCfg] (q : ℚ) : FloatRep :=
+def round_up [C : FloatCfg] (q : ℚ) : FloatRep :=
   let exp := Int.log 2 |q|
   let mantissa := ⌈(|q| * 2^(-exp) - 1) * C.prec⌉.natAbs
   if mantissa = C.prec then
@@ -43,9 +43,9 @@ def to_sign_exp_mantissa' [C : FloatCfg] (q : ℚ) : FloatRep :=
     ⟨q < 0, exp, mantissa⟩
 
 -- gross casework
-def to_sign_exp_mantissa'' [C : FloatCfg] (q : ℚ) : FloatRep :=
-  let ⟨b, e, m⟩ := to_sign_exp_mantissa q -- round towards zero
-  let ⟨b', e', m'⟩ := to_sign_exp_mantissa' q -- round away from zero
+def round_nearest [C : FloatCfg] (q : ℚ) : FloatRep :=
+  let ⟨b, e, m⟩ := round_down q -- round towards zero
+  let ⟨b', e', m'⟩ := round_up q -- round away from zero
   -- Find which one is closest
   if 2^e * m - |q| > |q| - 2^e' * m' then
     ⟨b', e', m'⟩
@@ -56,14 +56,17 @@ def to_sign_exp_mantissa'' [C : FloatCfg] (q : ℚ) : FloatRep :=
   else
     ⟨b', e', m'⟩
 
-def sign_mantissa_exp_to_q [C : FloatCfg] : FloatRep → ℚ
+def coe_q [C : FloatCfg] : FloatRep → ℚ
 | ⟨b, e, m⟩ =>
   let s := if b then -1 else 1
   s * (m / C.prec + 1) * 2^e
 
-lemma mantissa_exp_to_q_pos [C : FloatCfg] {e : ℤ} {m : ℕ} :
-  sign_mantissa_exp_to_q ⟨false, e, m⟩ > 0 := by
-  simp [sign_mantissa_exp_to_q]
+instance [C : FloatCfg] : Coe FloatRep ℚ where
+  coe := coe_q
+
+lemma coe_false_pos [C : FloatCfg] {e : ℤ} {m : ℕ} :
+  coe_q ⟨false, e, m⟩ > 0 := by
+  simp [coe_q]
   suffices ((m : ℚ) / C.prec + 1) > 0 by
     exact mul_pos this (zpow_pos (by norm_num) e)
   calc
@@ -105,63 +108,63 @@ lemma neg_invertible : Function.Bijective Flean.neg := by
   <;> exact Flean.neg_neg
 
 
-lemma sign_mantissa_exp_to_q_neg [C : FloatCfg] (f : FloatRep) :
-  sign_mantissa_exp_to_q (Flean.neg f) = -sign_mantissa_exp_to_q f:= by
-  by_cases h : f.s <;> simp [sign_mantissa_exp_to_q, h, Flean.neg]
+lemma coe_q_of_neg [C : FloatCfg] (f : FloatRep) :
+  coe_q (Flean.neg f) = -coe_q f:= by
+  by_cases h : f.s <;> simp [coe_q, h, Flean.neg]
   · ring
   ring
 
-lemma to_sign_exp_mantissa_neg [C : FloatCfg] (q : ℚ) (h : q ≠ 0) :
-  to_sign_exp_mantissa (-q) = Flean.neg (to_sign_exp_mantissa q) := by
+lemma round_down_of_neg [C : FloatCfg] (q : ℚ) (h : q ≠ 0) :
+  round_down (-q) = Flean.neg (round_down q) := by
   by_cases h' : q ≥ 0
   · have : q > 0 := lt_of_le_of_ne h' (Ne.symm h)
-    simp [to_sign_exp_mantissa, Flean.neg, h', this]
+    simp [round_down, Flean.neg, h', this]
   have : q < 0 := not_le.mp h'
-  simp [to_sign_exp_mantissa, Flean.neg, this, le_of_lt this]
+  simp [round_down, Flean.neg, this, le_of_lt this]
 
 lemma neg_false (e : ℤ) (m : ℕ) : ⟨true, e, m⟩ = Flean.neg ⟨false, e, m⟩ := rfl
 lemma neg_true (e : ℤ) (m : ℕ) : ⟨false, e, m⟩ = Flean.neg ⟨true, e, m⟩ := rfl
 
-lemma mantissa_exp_to_q_neg [C : FloatCfg] {e : ℤ} {m : ℕ} :
-  sign_mantissa_exp_to_q ⟨true, e, m⟩ < 0 := by
-  rw [neg_false, sign_mantissa_exp_to_q_neg]
-  simp only [Left.neg_neg_iff, gt_iff_lt, mantissa_exp_to_q_pos]
+lemma coe_q_false_neg [C : FloatCfg] {e : ℤ} {m : ℕ} :
+  coe_q ⟨true, e, m⟩ < 0 := by
+  rw [neg_false, coe_q_of_neg]
+  simp only [Left.neg_neg_iff, gt_iff_lt, coe_false_pos]
 
-lemma sign_mantissa_exp'_of_Cprec [C : FloatCfg] (b : Bool) (e : ℤ) :
-  sign_mantissa_exp_to_q ⟨b, e, C.prec⟩ = (if b then -1 else 1) * 2^(e + 1) := by
+lemma coe_q_of_Cprec [C : FloatCfg] (b : Bool) (e : ℤ) :
+  coe_q ⟨b, e, C.prec⟩ = (if b then -1 else 1) * 2^(e + 1) := by
   wlog h : b = false
   · simp only [ite_mul, neg_mul, one_mul, Bool.forall_bool, Bool.false_eq_true, ↓reduceIte,
     forall_const, Bool.true_eq_false, IsEmpty.forall_iff, implies_true, and_true] at this
     simp only [h, ↓reduceIte, neg_mul, one_mul]
-    rw [neg_false, sign_mantissa_exp_to_q_neg, this]
-  simp only [h, sign_mantissa_exp_to_q, Bool.false_eq_true, ↓reduceIte, one_mul]
+    rw [neg_false, coe_q_of_neg, this]
+  simp only [h, coe_q, Bool.false_eq_true, ↓reduceIte, one_mul]
   rw [div_self]
   · simp [zpow_add_one₀]
     ring
   exact Nat.cast_ne_zero.mpr (by linarith [C.prec_pos])
 
-lemma to_sign_exp_mantissa'_def [C : FloatCfg] (q : ℚ) :
+lemma round_up_def [C : FloatCfg] (q : ℚ) :
   let exp := Int.log 2 |q|
   let mantissa := ⌈(|q| * 2^(-exp) - 1) * C.prec⌉.natAbs
-  sign_mantissa_exp_to_q (to_sign_exp_mantissa' q) = sign_mantissa_exp_to_q ⟨(q < 0), exp, mantissa⟩ := by
+  coe_q (round_up q) = coe_q ⟨(q < 0), exp, mantissa⟩ := by
   set exp := Int.log 2 |q| with exp_def
   set mantissa := ⌈(|q| * 2^(-exp) - 1) * C.prec⌉.natAbs with mantissa_def
   dsimp
   by_cases h' : mantissa = C.prec
-  · simp only [to_sign_exp_mantissa', <-exp_def, <-mantissa_def, h', ↓reduceIte]
-    rw [sign_mantissa_exp'_of_Cprec]
-    simp [sign_mantissa_exp_to_q]
-  simp only [to_sign_exp_mantissa', <-exp_def, <-mantissa_def, ↓reduceIte, h']
+  · simp only [round_up, <-exp_def, <-mantissa_def, h', ↓reduceIte]
+    rw [coe_q_of_Cprec]
+    simp [coe_q]
+  simp only [round_up, <-exp_def, <-mantissa_def, ↓reduceIte, h']
 
-lemma to_sign_exp_mantissa'_neg [C : FloatCfg] (q : ℚ) (h : q ≠ 0) :
-  to_sign_exp_mantissa' (-q) = Flean.neg (to_sign_exp_mantissa' q) := by
+lemma round_up_neg [C : FloatCfg] (q : ℚ) (h : q ≠ 0) :
+  round_up (-q) = Flean.neg (round_up q) := by
   by_cases h' : q ≥ 0
   · have : q > 0 := lt_of_le_of_ne h' (Ne.symm h)
     by_cases h'' : ⌈(|q| * (2 ^ Int.log 2 |q|)⁻¹ - 1) * C.prec⌉.natAbs = C.prec
-    <;> simp [to_sign_exp_mantissa', this, h', h'', Flean.neg]
+    <;> simp [round_up, this, h', h'', Flean.neg]
   have : q < 0 := not_le.mp h'
   by_cases h'' : ⌈(|q| * (2 ^ Int.log 2 |q|)⁻¹ - 1) * C.prec⌉.natAbs = C.prec
-  <;> simp [to_sign_exp_mantissa', Flean.neg, this, le_of_lt this, h'']
+  <;> simp [round_up, Flean.neg, this, le_of_lt this, h'']
 
 
 lemma mantissa_ge_one [C : FloatCfg] {m : ℕ} : 1 ≤ ((m : ℚ) / C.prec + 1) := by
@@ -190,17 +193,17 @@ lemma q_mantissa_eq_mantissa [C : FloatCfg] {e : ℤ} {m : ℕ} (h : m < C.prec)
   positivity
 
 
-lemma left_inv_sign_exp_mantissa [C : FloatCfg] (f : FloatRep) (h : f.valid) :
-  to_sign_exp_mantissa (sign_mantissa_exp_to_q f) = f := by
+lemma round_down_coe [C : FloatCfg] (f : FloatRep) (h : f.valid) :
+  round_down (coe_q f) = f := by
   rcases f with ⟨s, e, m⟩
-  suffices to_sign_exp_mantissa (sign_mantissa_exp_to_q ⟨false, e, m⟩) = ⟨false, e, m⟩ by
+  suffices round_down (coe_q ⟨false, e, m⟩) = ⟨false, e, m⟩ by
     cases s
     · exact this
-    rw [neg_false, sign_mantissa_exp_to_q_neg, to_sign_exp_mantissa_neg,
+    rw [neg_false, coe_q_of_neg, round_down_of_neg,
       neg_invertible.injective.eq_iff]
     · exact this
-    symm; apply ne_of_lt mantissa_exp_to_q_pos
-  simp only [to_sign_exp_mantissa, sign_mantissa_exp_to_q, Bool.false_eq_true, ↓reduceIte, one_mul,
+    symm; apply ne_of_lt coe_false_pos
+  simp only [round_down, coe_q, Bool.false_eq_true, ↓reduceIte, one_mul,
     zpow_neg, FloatRep.mk.injEq, decide_eq_false_iff_not, not_lt]
   refine ⟨?_, ?_, ?_⟩
   · positivity
@@ -210,11 +213,11 @@ lemma left_inv_sign_exp_mantissa [C : FloatCfg] (f : FloatRep) (h : f.valid) :
   norm_cast
   exact ne_of_gt C.prec_pos
 
-lemma sign_mantissa_exp_to_q_inj [C : FloatCfg] {f1 f2 : FloatRep}
+lemma coe_q_inj_valid [C : FloatCfg] {f1 f2 : FloatRep}
   (h : f1.valid) (h' : f2.valid) :
-  sign_mantissa_exp_to_q f1 = sign_mantissa_exp_to_q f2 → f1 = f2 := by
-  nth_rw 2 [<- left_inv_sign_exp_mantissa (h := h), <- left_inv_sign_exp_mantissa (h := h')]
-  exact fun a ↦ congrArg to_sign_exp_mantissa a
+  coe_q f1 = coe_q f2 → f1 = f2 := by
+  nth_rw 2 [<- round_down_coe (h := h), <- round_down_coe (h := h')]
+  exact fun a ↦ congrArg round_down a
 
 
 lemma mantissa_size_aux (q : ℚ) (h : q ≠ 0): 1 ≤ |q| * (2 ^ Int.log 2 |q|)⁻¹ ∧
@@ -240,9 +243,9 @@ lemma small_floor_aux {q : ℚ} {n : ℕ} (h : q < 1) (h' : 0 ≤ q) (n_pos : 0 
     exact Int.floor_lt.mpr this
   exact (mul_lt_iff_lt_one_left (by norm_cast : 0 < (n : ℚ))).2 h
 
-lemma to_sign_exp_mantissa_valid_m [C : FloatCfg] (q : ℚ) (h : q ≠ 0):
-  (to_sign_exp_mantissa q).valid := by
-  simp only [to_sign_exp_mantissa, zpow_neg]
+lemma round_down_valid [C : FloatCfg] (q : ℚ) (h : q ≠ 0):
+  (round_down q).valid := by
+  simp only [round_down, zpow_neg]
   have m_nonneg : 0 ≤ |q| * (2 ^ Int.log 2 |q|)⁻¹ - 1 := by
     linarith [(mantissa_size_aux q h).1]
   have m_small : |q| * (2 ^ Int.log 2 |q|)⁻¹ - 1 < 1 := by
@@ -258,10 +261,10 @@ lemma small_ceil {q : ℚ} {n : ℕ} (h : q ≤ 1) (h' : 0 ≤ q) (n_nonneg : 0 
   exact mul_le_of_le_one_left (by norm_cast) h
 
 
-lemma to_sign_exp_mantissa'_valid_m [C : FloatCfg] (q : ℚ) (h' : q ≠ 0):
-  (to_sign_exp_mantissa' q).valid := by
+lemma round_up_valid [C : FloatCfg] (q : ℚ) (h' : q ≠ 0):
+  (round_up q).valid := by
   by_cases h : ⌈(|q| * (2 ^ Int.log 2 |q|)⁻¹ - 1) * C.prec⌉.natAbs = C.prec
-  <;> simp only [to_sign_exp_mantissa', zpow_neg, h, ↓reduceIte]
+  <;> simp only [round_up, zpow_neg, h, ↓reduceIte]
   · exact C.prec_pos
   have : (|q| * (2 ^ Int.log 2 |q|)⁻¹ - 1) ≤ 1 := by
     linarith [(mantissa_size_aux q h').2]
@@ -271,21 +274,21 @@ lemma to_sign_exp_mantissa'_valid_m [C : FloatCfg] (q : ℚ) (h' : q ≠ 0):
     exact Nat.zero_le _
   exact h
 
-lemma left_inv_sign_exp_mantissa' [C : FloatCfg] (f : FloatRep) (h : f.valid) :
-  to_sign_exp_mantissa' (sign_mantissa_exp_to_q f) = f := by
+lemma round_up_coe [C : FloatCfg] (f : FloatRep) (h : f.valid) :
+  round_up (coe_q f) = f := by
   rcases f with ⟨s, e, m⟩
-  suffices to_sign_exp_mantissa' (sign_mantissa_exp_to_q ⟨false, e, m⟩) = ⟨false, e, m⟩ by
+  suffices round_up (coe_q ⟨false, e, m⟩) = ⟨false, e, m⟩ by
     cases s
     · exact this
-    rw [neg_false, sign_mantissa_exp_to_q_neg, to_sign_exp_mantissa'_neg,
+    rw [neg_false, coe_q_of_neg, round_up_neg,
       neg_invertible.injective.eq_iff]
     · exact this
-    symm; apply ne_of_lt mantissa_exp_to_q_pos
-  simp only [sign_mantissa_exp_to_q, Bool.false_eq_true, ↓reduceIte, one_mul]
-  refine sign_mantissa_exp_to_q_inj ?_ h ?_
-  · refine to_sign_exp_mantissa'_valid_m _ ?_
+    symm; apply ne_of_lt coe_false_pos
+  simp only [coe_q, Bool.false_eq_true, ↓reduceIte, one_mul]
+  refine coe_q_inj_valid ?_ h ?_
+  · refine round_up_valid _ ?_
     positivity
-  rw [to_sign_exp_mantissa'_def]
+  rw [round_up_def]
   congr 2
   · simp; positivity
   · exact q_exp_eq_exp h
@@ -318,39 +321,38 @@ lemma q_to_subnormal_valid [C : FloatCfg] (q : ℚ) (q_nonneg : q ≠ 0)
       ring
     _ < 1 := by linarith
 
-lemma to_sign_exp_mantissa''_eq_or [C : FloatCfg] (q : ℚ) :
-  to_sign_exp_mantissa'' q = to_sign_exp_mantissa q ∨
-    to_sign_exp_mantissa'' q = to_sign_exp_mantissa' q := by
-  unfold to_sign_exp_mantissa''
-  rcases to_sign_exp_mantissa q with ⟨s, e, m⟩
-  rcases to_sign_exp_mantissa' q with ⟨s', e', m'⟩
+lemma round_nearest_eq_or [C : FloatCfg] (q : ℚ) :
+  round_nearest q = round_down q ∨ round_nearest q = round_up q := by
+  unfold round_nearest
+  rcases round_down q with ⟨s, e, m⟩
+  rcases round_up q with ⟨s', e', m'⟩
   repeat (first | split | tauto)
 
 
-lemma left_inv_sign_exp_mantissa'' [C : FloatCfg] (f : FloatRep) (h : f.valid) :
-  to_sign_exp_mantissa'' (sign_mantissa_exp_to_q f) = f := by
-  rcases to_sign_exp_mantissa''_eq_or (sign_mantissa_exp_to_q f) with h' | h'
-  · rw [h', left_inv_sign_exp_mantissa f h]
-  rw [h', left_inv_sign_exp_mantissa' f h]
+lemma round_nearest_coe [C : FloatCfg] (f : FloatRep) (h : f.valid) :
+  round_nearest (coe_q f) = f := by
+  rcases round_nearest_eq_or (coe_q f) with h' | h'
+  · rw [h', round_down_coe f h]
+  rw [h', round_up_coe f h]
 
-lemma to_sign_exp_mantissa''_valid_m [C : FloatCfg] (q : ℚ) (h' : q ≠ 0) :
-  (to_sign_exp_mantissa'' q).valid := by
-  rcases to_sign_exp_mantissa''_eq_or q with h | h <;> rw [h]
-  · exact to_sign_exp_mantissa_valid_m q h'
-  exact to_sign_exp_mantissa'_valid_m q h'
+lemma round_nearest_valid [C : FloatCfg] (q : ℚ) (h' : q ≠ 0) :
+  (round_nearest q).valid := by
+  rcases round_nearest_eq_or q with h | h <;> rw [h]
+  · exact round_down_valid q h'
+  exact round_up_valid q h'
 
 
 def to_float [C : FloatCfg] (q : ℚ) : Flean.Float :=
-  match sem_def : to_sign_exp_mantissa q with
+  match sem_def : round_down q with
   | ⟨s, e, m⟩ =>
   if q_nonneg : q = 0 then
     Flean.Float.subnormal false 0 (C.prec_pos)
   else if h : e < C.emin then by
     let sm := q_to_subnormal q
     refine Flean.Float.subnormal sm.1 sm.2 ?_
-    · have : e = (to_sign_exp_mantissa q).e := by
+    · have : e = (round_down q).e := by
         rw [sem_def]
-      simp only [to_sign_exp_mantissa] at this
+      simp only [round_down] at this
       rw [this] at h
       exact q_to_subnormal_valid q q_nonneg h
   else if h' : e > C.emax then
@@ -358,15 +360,15 @@ def to_float [C : FloatCfg] (q : ℚ) : Flean.Float :=
   else by
     refine Flean.Float.normal s e m ?_
     refine ⟨Int.not_lt.mp h, Int.not_lt.mp h', ?_⟩
-    have : m = (to_sign_exp_mantissa q).m := by
+    have : m = (round_down q).m := by
       rw [sem_def]
     rw [this]
-    exact to_sign_exp_mantissa_valid_m q (q_nonneg)
+    exact round_down_valid q (q_nonneg)
 
 def to_rat [C : FloatCfg] : Flean.Float → ℚ
 | Flean.Float.inf _ => 0
 | Flean.Float.nan => 0
-| Flean.Float.normal s e m _ => sign_mantissa_exp_to_q ⟨s, e, m⟩
+| Flean.Float.normal s e m _ => coe_q ⟨s, e, m⟩
 | Flean.Float.subnormal s m _ => subnormal_to_q s m
 
 def IsFinite [C : FloatCfg] : Flean.Float → Prop
