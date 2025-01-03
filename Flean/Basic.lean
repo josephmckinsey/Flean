@@ -5,14 +5,17 @@ import Mathlib.Algebra.Order.Floor
 import Qq
 import Mathlib.Analysis.SpecialFunctions.Pow.Real
 import Mathlib.Analysis.SpecialFunctions.Log.Base
---import Mathlib.Data.FP.Basic
 import Mathlib.Data.Int.Log
--- import ℝ
 
 class FloatCfg where
   (prec : ℕ) (emin emax : ℤ)
   emin_le_emax : emin < emax
   prec_pos : 0 < prec
+
+structure FloatRep [C : FloatCfg] where
+  (s : Bool) (e : ℤ) (m : ℕ)
+
+def FloatRep.valid [C : FloatCfg] : Prop := FloatRep.m < C.prec
 
 def ValidNormal [C : FloatCfg] (e : ℤ) (m : ℕ) : Prop :=
   C.emin ≤ e ∧ e ≤ C.emax ∧ m < C.prec
@@ -22,7 +25,6 @@ inductive Flean.Float [C : FloatCfg] where
   | nan : Float
   | normal : Bool → ∀ e m, ValidNormal e m → Float
   | subnormal : Bool → ∀ m, m < C.prec → Float
-
 
 def to_sign_exp_mantissa [C : FloatCfg] (q : ℚ) : Bool × ℤ × ℕ :=
   let exp := Int.log 2 |q|
@@ -40,20 +42,16 @@ def to_sign_exp_mantissa' [C : FloatCfg] (q : ℚ) : Bool × ℤ × ℕ :=
 -- gross casework
 def to_sign_exp_mantissa'' [C : FloatCfg] (q : ℚ) : Bool × ℤ × ℕ :=
   let (b, e, m) := to_sign_exp_mantissa q -- round towards zero
-  let (_, e', m') := to_sign_exp_mantissa' q -- round away from zero
+  let (b', e', m') := to_sign_exp_mantissa' q -- round away from zero
   -- Find which one is closest
   if 2^e * m - |q| > |q| - 2^e' * m' then
-    (b, e', m')
+    (b', e', m')
   else if 2^e * m - |q| < |q| - 2^e' * m' then
     (b, e, m)
   else if m % 2 = 0 then
     (b, e, m)
   else
-    (b, e', m')
-
-def C : FloatCfg := FloatCfg.mk 256 (-127) 127 (by norm_num) (by norm_num)
-
-#eval @to_sign_exp_mantissa'' C 3.5 = (false, 1, 24)
+    (b', e', m')
 
 def sign_mantissa_exp_to_q [C : FloatCfg] (b : Bool) (e : ℤ) (m : ℕ) : ℚ :=
   let s := if b then -1 else 1
@@ -94,8 +92,8 @@ lemma log_one_to_two_eq {b : ℕ} {e : ℤ} (h : 1 < b) {x : ℚ} (h' : 1 ≤ x)
   nth_rw 1 [<-one_mul ((b : ℚ)^e)]
   exact (mul_le_mul_right (zpow_pos bpos e)).mpr h'
 
-
 def Flean.neg (s : Bool) (e : ℤ) (m : ℕ) : Bool × ℤ × ℕ := (!s, e, m)
+
 def Flean.neg' : Bool × ℤ × ℕ → Bool× ℤ × ℕ := fun (s, e, m) ↦ (!s, e, m)
 
 lemma neg'_neg' : Flean.neg' ∘ Flean.neg' = id := by
@@ -165,10 +163,10 @@ lemma to_sign_exp_mantissa'_neg [C : FloatCfg] (q : ℚ) (h : q ≠ 0) :
   to_sign_exp_mantissa' (-q) = Flean.neg' (to_sign_exp_mantissa' q) := by
   by_cases h' : q ≥ 0
   · have : q > 0 := lt_of_le_of_ne h' (Ne.symm h)
-    by_cases h'' : ⌈(|q| * (2 ^ Int.log 2 |q|)⁻¹ - 1) * ↑FloatCfg.prec⌉.natAbs = FloatCfg.prec
+    by_cases h'' : ⌈(|q| * (2 ^ Int.log 2 |q|)⁻¹ - 1) * C.prec⌉.natAbs = C.prec
     <;> simp [to_sign_exp_mantissa', this, h', h'', Flean.neg']
   have : q < 0 := not_le.mp h'
-  by_cases h'' : ⌈(|q| * (2 ^ Int.log 2 |q|)⁻¹ - 1) * ↑FloatCfg.prec⌉.natAbs = FloatCfg.prec
+  by_cases h'' : ⌈(|q| * (2 ^ Int.log 2 |q|)⁻¹ - 1) * C.prec⌉.natAbs = C.prec
   <;> simp [to_sign_exp_mantissa', Flean.neg', this, le_of_lt this, h'']
 
 
@@ -240,7 +238,6 @@ lemma sign_mantissa_exp_to_q_inj [C : FloatCfg] {bem1 bem2 : Bool × ℤ × ℕ}
   exact fun a ↦ congrArg to_sign_exp_mantissa a
 
 
-
 lemma mantissa_size_aux (q : ℚ) (h : q ≠ 0): 1 ≤ |q| * (2 ^ Int.log 2 |q|)⁻¹ ∧
   |q| * (2 ^ Int.log 2 |q|)⁻¹ < 2 := by
   constructor
@@ -292,7 +289,7 @@ lemma small_ceil {q : ℚ} {n : ℕ} (h : q ≤ 1) (h' : 0 ≤ q) (n_nonneg : 0 
 
 lemma to_sign_exp_mantissa'_valid_m [C : FloatCfg] (q : ℚ) (h' : q ≠ 0):
   (to_sign_exp_mantissa' q).2.2 < C.prec := by
-  by_cases h : ⌈(|q| * (2 ^ Int.log 2 |q|)⁻¹ - 1) * ↑FloatCfg.prec⌉.natAbs = FloatCfg.prec
+  by_cases h : ⌈(|q| * (2 ^ Int.log 2 |q|)⁻¹ - 1) * C.prec⌉.natAbs = C.prec
   <;> simp only [to_sign_exp_mantissa', zpow_neg, h, ↓reduceIte]
   · exact C.prec_pos
   have : (|q| * (2 ^ Int.log 2 |q|)⁻¹ - 1) ≤ 1 := by
@@ -329,9 +326,6 @@ lemma left_inv_sign_exp_mantissa' [C : FloatCfg] (s : Bool) (e : ℤ) (m : ℕ)
   norm_cast
   exact ne_of_gt C.prec_pos
 
-
-#eval @to_sign_exp_mantissa C 0
-
 def q_to_subnormal [C : FloatCfg] (q : ℚ) : Bool × ℕ :=
   (q ≥ 0, ⌊|q| * 2^(-C.emin) * C.prec⌋.natAbs)
 
@@ -349,12 +343,34 @@ lemma q_to_subnormal_valid [C : FloatCfg] (q : ℚ) (q_nonneg : q ≠ 0)
   case nonneg =>
     exact mul_nonneg (abs_nonneg _) (zpow_nonneg (by norm_num) (-C.emin : ℤ))
   calc
-    |q| * 2 ^ (-FloatCfg.emin) ≤ |q| * 2^(-e - 1) := by
+    |q| * 2 ^ (-C.emin) ≤ |q| * 2^(-e - 1) := by
       exact mul_le_mul_of_nonneg_left emin_smaller_than_e (abs_nonneg _)
     _ = |q| * 2^(-e) / 2 := by
       rw [zpow_sub₀ (by norm_num)]
       ring
     _ < 1 := by linarith
+
+lemma to_sign_exp_mantissa''_eq_or [C : FloatCfg] (q : ℚ) :
+  to_sign_exp_mantissa'' q = to_sign_exp_mantissa q ∨
+    to_sign_exp_mantissa'' q = to_sign_exp_mantissa' q := by
+  unfold to_sign_exp_mantissa''
+  rcases to_sign_exp_mantissa q with ⟨s, e, m⟩
+  rcases to_sign_exp_mantissa' q with ⟨s', e', m'⟩
+  repeat (first | split | tauto)
+
+
+lemma left_inv_sign_exp_mantissa'' [C : FloatCfg] (s : Bool) (e : ℤ) (m : ℕ)
+  (h : m < C.prec) : to_sign_exp_mantissa'' (sign_mantissa_exp_to_q s e m) = (s, e, m) := by
+  rcases to_sign_exp_mantissa''_eq_or (sign_mantissa_exp_to_q s e m) with h' | h'
+  · rw [h', left_inv_sign_exp_mantissa s e m h]
+  rw [h', left_inv_sign_exp_mantissa' s e m h]
+
+lemma to_sign_exp_mantissa''_valid_m [C : FloatCfg] (q : ℚ) (h' : q ≠ 0):
+  (to_sign_exp_mantissa'' q).2.2 < C.prec := by
+  rcases to_sign_exp_mantissa''_eq_or q with h | h <;> rw [h]
+  · exact to_sign_exp_mantissa_valid_m q h'
+  exact to_sign_exp_mantissa'_valid_m q h'
+
 
 def to_float [C : FloatCfg] (q : ℚ) : Flean.Float :=
   match sem_def : to_sign_exp_mantissa q with
@@ -394,17 +410,15 @@ def IsZero [C : FloatCfg] : Flean.Float → Prop
 | Flean.Float.subnormal _ 0 _ => true
 | _ => false
 
-#eval @to_rat C (@to_float C 3.528123042)
-
 def DoubleCfg : FloatCfg := FloatCfg.mk (1 <<< 52) (-1022) 1023 (by norm_num) (
   Nat.zero_lt_succ 4503599627370495
 )
 
-#eval @to_rat DoubleCfg (@to_float DoubleCfg 3.528123042)
 
-#check ℕ+
+def C : FloatCfg := FloatCfg.mk 256 (-127) 127 (by norm_num) (by norm_num)
 
-variable {α : Type}
-def remember (a: α): {val: α // val = a} := ⟨a, rfl⟩
+#eval @to_rat C (@to_float C 3.528123042)
 
--- List all instances of a typeclass
+#eval @to_sign_exp_mantissa'' C 3.5 = (false, 1, 24)
+
+#eval @to_sign_exp_mantissa C 0
