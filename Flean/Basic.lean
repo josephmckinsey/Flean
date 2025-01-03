@@ -166,14 +166,10 @@ lemma to_sign_exp_mantissa'_neg [C : FloatCfg] (q : ℚ) (h : q ≠ 0) :
 
 lemma mantissa_ge_one [C : FloatCfg] {m : ℕ} : 1 ≤ ((m : ℚ) / C.prec + 1) := by
   suffices 0 ≤ (m : ℚ) / C.prec by linarith
-  exact div_nonneg (by linarith) (by linarith)
+  positivity
 
-lemma mantissa_2e_pos [C : FloatCfg] {e : ℤ} {m : ℕ} : 0 < ((m : ℚ) / C.prec + 1) * 2^e := by
-  have mantissa_ge_one : 1 ≤ ((m : ℚ) / C.prec + 1) := by
-    suffices 0 ≤ (m : ℚ) / C.prec by linarith
-    exact div_nonneg (by linarith) (by linarith)
-  have := lt_of_lt_of_le (rfl : 0 < (1 : ℚ)) mantissa_ge_one
-  exact (mul_pos_iff_of_pos_right (zpow_pos rfl e)).mpr this
+--lemma mantissa_2e_pos [C : FloatCfg] {e : ℤ} {m : ℕ} : 0 < ((m : ℚ) / C.prec + 1) * 2^e := by
+--  positivity
 
 def q_exp_eq_exp [C : FloatCfg] {e : ℤ} {m : ℕ} (h : m < C.prec) :
   Int.log 2 |((m : ℚ) / ↑C.prec + 1) * 2 ^ e| = e := by
@@ -184,29 +180,19 @@ def q_exp_eq_exp [C : FloatCfg] {e : ℤ} {m : ℕ} (h : m < C.prec) :
       · norm_cast; exact Nat.zero_lt_of_lt h
       exact this
     norm_cast
-  rw [abs_of_nonneg (le_of_lt mantissa_2e_pos)]
+  rw [abs_of_nonneg (by positivity)]
   exact log_one_to_two_eq (by norm_num) mantissa_ge_one (by norm_cast)
 
 lemma q_mantissa_eq_mantissa [C : FloatCfg] {e : ℤ} {m : ℕ} (h : m < C.prec) :
   |(((m : ℚ)/C.prec) + 1) * 2^e| * 2^(-Int.log 2 |(((m : ℚ)/C.prec) + 1) * 2^e|) = (m : ℚ) / C.prec + 1 := by
-  have mantissa_ge_one : 1 ≤ ((m : ℚ) / C.prec + 1) := by
-    suffices 0 ≤ (m : ℚ) / C.prec by linarith
-    exact div_nonneg (by linarith) (by linarith)
-  have mantissa_2e_pos : 0 < ((m : ℚ) / C.prec + 1) * 2^e := by
-    have := lt_of_lt_of_le (rfl : 0 < (1 : ℚ)) mantissa_ge_one
-    exact (mul_pos_iff_of_pos_right (zpow_pos rfl e)).mpr this
-  set man := ((m : ℚ)/C.prec) + 1 with man_def
-  rw [q_exp_eq_exp h, abs_of_pos mantissa_2e_pos, zpow_neg, mul_assoc, mul_inv_cancel₀, mul_one]
-  exact zpow_ne_zero e (by norm_num)
+  rw [q_exp_eq_exp h, abs_of_pos (by positivity), zpow_neg, mul_assoc,
+    mul_inv_cancel₀, mul_one]
+  positivity
 
 
 lemma left_inv_sign_exp_mantissa [C : FloatCfg] (f : FloatRep) (h : f.valid) :
   to_sign_exp_mantissa (sign_mantissa_exp_to_q f) = f := by
-  set s := f.s
-  set e := f.e
-  set m := f.m
-  have : f = ⟨s, e, m⟩ := by cases f; rfl
-  rw [this]
+  rcases f with ⟨s, e, m⟩
   suffices to_sign_exp_mantissa (sign_mantissa_exp_to_q ⟨false, e, m⟩) = ⟨false, e, m⟩ by
     cases s
     · exact this
@@ -247,13 +233,9 @@ lemma mantissa_size_aux (q : ℚ) (h : q ≠ 0): 1 ≤ |q| * (2 ^ Int.log 2 |q|)
 
 lemma small_floor_aux {q : ℚ} {n : ℕ} (h : q < 1) (h' : 0 ≤ q) (n_pos : 0 < n):
   ⌊q * n⌋.natAbs < n := by
-  have : 0 ≤ (q * n) := by
-    exact mul_nonneg h' (Nat.cast_nonneg' n)
-  have floor_nonneg : 0 ≤ ⌊q * n⌋ := by
-    exact Int.floor_nonneg.mpr this
   suffices ⌊q * n⌋.natAbs < (n : ℤ) by
     norm_cast at this
-  rw [Int.natAbs_of_nonneg floor_nonneg]
+  rw [Int.natAbs_of_nonneg (by positivity)]
   suffices q * n < n by
     exact Int.floor_lt.mpr this
   exact (mul_lt_iff_lt_one_left (by norm_cast : 0 < (n : ℚ))).2 h
@@ -269,13 +251,9 @@ lemma to_sign_exp_mantissa_valid_m [C : FloatCfg] (q : ℚ) (h : q ≠ 0):
 
 lemma small_ceil {q : ℚ} {n : ℕ} (h : q ≤ 1) (h' : 0 ≤ q) (n_nonneg : 0 ≤ n):
   ⌈q * n⌉.natAbs ≤ n := by
-  have : 0 ≤ (q * n) := by
-    exact mul_nonneg h' (Nat.cast_nonneg' n)
-  have ceil_nonneg : 0 ≤ ⌈q * n⌉ := by
-    exact Int.ceil_nonneg this
   suffices ⌈q * n⌉.natAbs ≤ (n : ℤ) by
     norm_cast at this
-  rw [Int.natAbs_of_nonneg ceil_nonneg]
+  rw [Int.natAbs_of_nonneg (by positivity)]
   apply Int.ceil_le.mpr
   exact mul_le_of_le_one_left (by norm_cast) h
 
@@ -295,11 +273,7 @@ lemma to_sign_exp_mantissa'_valid_m [C : FloatCfg] (q : ℚ) (h' : q ≠ 0):
 
 lemma left_inv_sign_exp_mantissa' [C : FloatCfg] (f : FloatRep) (h : f.valid) :
   to_sign_exp_mantissa' (sign_mantissa_exp_to_q f) = f := by
-  set s := f.s
-  set e := f.e
-  set m := f.m
-  have : f = ⟨s, e, m⟩ := by cases f; rfl
-  rw [this]
+  rcases f with ⟨s, e, m⟩
   suffices to_sign_exp_mantissa' (sign_mantissa_exp_to_q ⟨false, e, m⟩) = ⟨false, e, m⟩ by
     cases s
     · exact this
@@ -310,10 +284,10 @@ lemma left_inv_sign_exp_mantissa' [C : FloatCfg] (f : FloatRep) (h : f.valid) :
   simp only [sign_mantissa_exp_to_q, Bool.false_eq_true, ↓reduceIte, one_mul]
   refine sign_mantissa_exp_to_q_inj ?_ h ?_
   · refine to_sign_exp_mantissa'_valid_m _ ?_
-    linarith [mantissa_2e_pos (m := m) (e := e)]
+    positivity
   rw [to_sign_exp_mantissa'_def]
   congr 2
-  · simp [le_of_lt (mantissa_2e_pos (m := m) (e := e))]
+  · simp; positivity
   · exact q_exp_eq_exp h
   rw [q_mantissa_eq_mantissa h]
   rw [add_sub_cancel_right, div_mul_cancel₀, Int.ceil_natCast, Int.natAbs_ofNat]
