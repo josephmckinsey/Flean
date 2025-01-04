@@ -7,38 +7,41 @@ import Mathlib.Analysis.SpecialFunctions.Pow.Real
 import Mathlib.Analysis.SpecialFunctions.Log.Base
 import Mathlib.Data.Int.Log
 
-class FloatCfg where
+structure FloatCfg where
   (prec : ℕ) (emin emax : ℤ)
   emin_lt_emax : emin < emax
   prec_pos : 0 < prec
 
-structure FloatRep where
+structure FloatRep (α : FloatCfg) where
   (s : Bool) (e : ℤ) (m : ℕ)
 
-instance : Repr FloatRep where
+def ValidNormal {C : FloatCfg} (e : ℤ) (m : ℕ) : Prop :=
+  C.emin ≤ e ∧ e ≤ C.emax ∧ m < C.prec
+
+inductive Flean.Float where
+  | inf : Bool → Float
+  | nan : Float
+  | normal : (C : FloatCfg) → Bool → ∀ e m, ValidNormal e m → Float
+  | subnormal : (C : FloatCfg) → Bool → ∀ m, m < C.prec → Float
+
+variable {C : FloatCfg}
+
+instance : Repr (FloatRep C) where
   reprPrec := fun ⟨s, e, m⟩ _ => "⟨" ++ repr s ++ ", " ++ repr e ++ ", " ++ repr m ++ "⟩"
 
-def FloatRep.decEq (f1 f2 : FloatRep) : Decidable (Eq f1 f2) := by
+
+def FloatRep.decEq (f1 f2 : FloatRep C) : Decidable (Eq f1 f2) := by
   rw [FloatRep.mk.injEq]
   exact instDecidableAnd
 
-def FloatRep.valid [C : FloatCfg] (f : FloatRep) : Prop := f.m < C.prec
+def FloatRep.valid (f : FloatRep C) : Prop := f.m < C.prec
 
-def ValidNormal [C : FloatCfg] (e : ℤ) (m : ℕ) : Prop :=
-C.emin ≤ e ∧ e ≤ C.emax ∧ m < C.prec
-
-inductive Flean.Float [C : FloatCfg] where
-  | inf : Bool → Float
-  | nan : Float
-  | normal : Bool → ∀ e m, ValidNormal e m → Float
-  | subnormal : Bool → ∀ m, m < C.prec → Float
-
-def round_down [C : FloatCfg] (q : ℚ) : FloatRep :=
+def round_down (q : ℚ) : FloatRep C :=
   let exp := Int.log 2 |q|
   let mantissa := ⌊(|q| * 2^(-exp) - 1) * C.prec⌋
   ⟨q < 0, exp, mantissa.natAbs⟩
 
-def round_up [C : FloatCfg] (q : ℚ) : FloatRep :=
+def round_up (q : ℚ) : FloatRep C :=
   let exp := Int.log 2 |q|
   let mantissa := ⌈(|q| * 2^(-exp) - 1) * C.prec⌉.natAbs
   if mantissa = C.prec then
@@ -47,9 +50,9 @@ def round_up [C : FloatCfg] (q : ℚ) : FloatRep :=
     ⟨q < 0, exp, mantissa⟩
 
 -- gross casework
-def round_nearest [C : FloatCfg] (q : ℚ) : FloatRep :=
-  let ⟨b, e, m⟩ := round_down q -- round towards zero
-  let ⟨b', e', m'⟩ := round_up q -- round away from zero
+def round_nearest (q : ℚ) : FloatRep C :=
+  let ⟨b, e, m⟩ : FloatRep C := round_down q -- round towards zero
+  let ⟨b', e', m'⟩ : FloatRep C := round_up q -- round away from zero
   -- Find which one is closest
   if 2^e * m - |q| > |q| - 2^e' * m' then
     ⟨b', e', m'⟩
@@ -60,16 +63,16 @@ def round_nearest [C : FloatCfg] (q : ℚ) : FloatRep :=
   else
     ⟨b', e', m'⟩
 
-def coe_q [C : FloatCfg] : FloatRep → ℚ
+def coe_q : FloatRep C → ℚ
 | ⟨b, e, m⟩ =>
   let s := if b then -1 else 1
   s * (m / C.prec + 1) * 2^e
 
-instance [C : FloatCfg] : Coe FloatRep ℚ where
-  coe := coe_q
+--instance : Coe (FloatRep C) ℚ where
+  --coe := coe_q
 
-lemma coe_false_pos [C : FloatCfg] {e : ℤ} {m : ℕ} :
-  coe_q ⟨false, e, m⟩ > 0 := by
+lemma coe_false_pos {e : ℤ} {m : ℕ} :
+  coe_q (⟨false, e, m⟩ : FloatRep C) > 0 := by
   simp [coe_q]
   suffices ((m : ℚ) / C.prec + 1) > 0 by
     exact mul_pos this (zpow_pos (by norm_num) e)
@@ -95,43 +98,43 @@ lemma log_one_to_two_eq {b : ℕ} {e : ℤ} (h : 1 < b) {x : ℚ} (h' : 1 ≤ x)
   nth_rw 1 [<-one_mul ((b : ℚ)^e)]
   exact (mul_le_mul_right (zpow_pos bpos e)).mpr h'
 
-def Flean.neg : FloatRep → FloatRep
+def Flean.neg {C  : FloatCfg} : FloatRep C → FloatRep C
 | ⟨s, e, m⟩ => ⟨!s, e, m⟩
 
-lemma Flean.neg_neg : Flean.neg ∘ Flean.neg = id := by
+lemma Flean.neg_neg : (@Flean.neg C) ∘ (@Flean.neg C) = id := by
   funext ⟨s, e, m⟩
   simp [Flean.neg]
 
-lemma neg_invertible : Function.Bijective Flean.neg := by
+lemma neg_invertible : Function.Bijective (@Flean.neg C) := by
   apply Function.bijective_iff_has_inverse.2
   refine ⟨Flean.neg, Function.leftInverse_iff_comp.2 ?_, Function.rightInverse_iff_comp.2 ?_⟩
   <;> exact Flean.neg_neg
 
 
-lemma coe_q_of_neg [C : FloatCfg] (f : FloatRep) :
+lemma coe_q_of_neg (f : FloatRep C) :
   coe_q (Flean.neg f) = -coe_q f:= by
   by_cases h : f.s <;> simp [coe_q, h, Flean.neg]
   · ring
   ring
 
-lemma round_down_of_neg [C : FloatCfg] (q : ℚ) (h : q ≠ 0) :
-  round_down (-q) = Flean.neg (round_down q) := by
+lemma round_down_of_neg (q : ℚ) (h : q ≠ 0) :
+  round_down (-q) = Flean.neg (round_down q : FloatRep C) := by
   by_cases h' : q ≥ 0
   · have : q > 0 := lt_of_le_of_ne h' (Ne.symm h)
     simp [round_down, Flean.neg, h', this]
   have : q < 0 := not_le.mp h'
   simp [round_down, Flean.neg, this, le_of_lt this]
 
-lemma neg_false (e : ℤ) (m : ℕ) : ⟨true, e, m⟩ = Flean.neg ⟨false, e, m⟩ := rfl
-lemma neg_true (e : ℤ) (m : ℕ) : ⟨false, e, m⟩ = Flean.neg ⟨true, e, m⟩ := rfl
+lemma neg_false (e : ℤ) (m : ℕ) : ⟨true, e, m⟩ = (Flean.neg ⟨false, e, m⟩ : FloatRep C) := rfl
+lemma neg_true (e : ℤ) (m : ℕ) : ⟨false, e, m⟩ = (Flean.neg ⟨true, e, m⟩ : FloatRep C) := rfl
 
-lemma coe_q_false_neg [C : FloatCfg] {e : ℤ} {m : ℕ} :
-  coe_q ⟨true, e, m⟩ < 0 := by
+lemma coe_q_false_neg {e : ℤ} {m : ℕ} :
+  coe_q (⟨true, e, m⟩ : FloatRep C) < 0 := by
   rw [neg_false, coe_q_of_neg]
   simp only [Left.neg_neg_iff, gt_iff_lt, coe_false_pos]
 
-lemma coe_q_of_Cprec [C : FloatCfg] (b : Bool) (e : ℤ) :
-  coe_q ⟨b, e, C.prec⟩ = (if b then -1 else 1) * 2^(e + 1) := by
+lemma coe_q_of_Cprec (b : Bool) (e : ℤ) :
+  coe_q (⟨b, e, C.prec⟩ : FloatRep C) = (if b then -1 else 1) * 2^(e + 1) := by
   wlog h : b = false
   · simp only [ite_mul, neg_mul, one_mul, Bool.forall_bool, Bool.false_eq_true, ↓reduceIte,
     forall_const, Bool.true_eq_false, IsEmpty.forall_iff, implies_true, and_true] at this
@@ -143,10 +146,10 @@ lemma coe_q_of_Cprec [C : FloatCfg] (b : Bool) (e : ℤ) :
     ring
   exact Nat.cast_ne_zero.mpr (by linarith [C.prec_pos])
 
-lemma round_up_def [C : FloatCfg] (q : ℚ) :
+lemma round_up_def (q : ℚ) :
   let exp := Int.log 2 |q|
   let mantissa := ⌈(|q| * 2^(-exp) - 1) * C.prec⌉.natAbs
-  coe_q (round_up q) = coe_q ⟨(q < 0), exp, mantissa⟩ := by
+  coe_q (round_up q : FloatRep C) = coe_q (⟨(q < 0), exp, mantissa⟩ : FloatRep C):= by
   set exp := Int.log 2 |q| with exp_def
   set mantissa := ⌈(|q| * 2^(-exp) - 1) * C.prec⌉.natAbs with mantissa_def
   dsimp
@@ -156,8 +159,8 @@ lemma round_up_def [C : FloatCfg] (q : ℚ) :
     simp [coe_q]
   simp only [round_up, <-exp_def, <-mantissa_def, ↓reduceIte, h']
 
-lemma round_up_neg [C : FloatCfg] (q : ℚ) (h : q ≠ 0) :
-  round_up (-q) = Flean.neg (round_up q) := by
+lemma round_up_neg (q : ℚ) (h : q ≠ 0) :
+  round_up (-q) = Flean.neg (round_up q : FloatRep C) := by
   by_cases h' : q ≥ 0
   · have : q > 0 := lt_of_le_of_ne h' (Ne.symm h)
     by_cases h'' : ⌈(|q| * (2 ^ Int.log 2 |q|)⁻¹ - 1) * C.prec⌉.natAbs = C.prec
@@ -167,14 +170,14 @@ lemma round_up_neg [C : FloatCfg] (q : ℚ) (h : q ≠ 0) :
   <;> simp [round_up, Flean.neg, this, le_of_lt this, h'']
 
 
-lemma mantissa_ge_one [C : FloatCfg] {m : ℕ} : 1 ≤ ((m : ℚ) / C.prec + 1) := by
+lemma mantissa_ge_one {m : ℕ} : 1 ≤ ((m : ℚ) / C.prec + 1) := by
   suffices 0 ≤ (m : ℚ) / C.prec by linarith
   positivity
 
---lemma mantissa_2e_pos [C : FloatCfg] {e : ℤ} {m : ℕ} : 0 < ((m : ℚ) / C.prec + 1) * 2^e := by
+--lemma mantissa_2e_pos {e : ℤ} {m : ℕ} : 0 < ((m : ℚ) / C.prec + 1) * 2^e := by
 --  positivity
 
-def q_exp_eq_exp [C : FloatCfg] {e : ℤ} {m : ℕ} (h : m < C.prec) :
+def q_exp_eq_exp {e : ℤ} {m : ℕ} (h : m < C.prec) :
   Int.log 2 |((m : ℚ) / ↑C.prec + 1) * 2 ^ e| = e := by
   have mantissa_lt : ((m : ℚ) / C.prec + 1) < 2 := by
     suffices (m : ℚ) / C.prec < 1 by linarith
@@ -186,14 +189,14 @@ def q_exp_eq_exp [C : FloatCfg] {e : ℤ} {m : ℕ} (h : m < C.prec) :
   rw [abs_of_nonneg (by positivity)]
   exact log_one_to_two_eq (by norm_num) mantissa_ge_one (by norm_cast)
 
-lemma q_mantissa_eq_mantissa [C : FloatCfg] {e : ℤ} {m : ℕ} (h : m < C.prec) :
+lemma q_mantissa_eq_mantissa {e : ℤ} {m : ℕ} (h : m < C.prec) :
   |(((m : ℚ)/C.prec) + 1) * 2^e| * 2^(-Int.log 2 |(((m : ℚ)/C.prec) + 1) * 2^e|) = (m : ℚ) / C.prec + 1 := by
   rw [q_exp_eq_exp h, abs_of_pos (by positivity), zpow_neg, mul_assoc,
     mul_inv_cancel₀, mul_one]
   positivity
 
 
-lemma round_down_coe [C : FloatCfg] (f : FloatRep) (h : f.valid) :
+lemma round_down_coe (f : FloatRep C) (h : f.valid) :
   round_down (coe_q f) = f := by
   rcases f with ⟨s, e, m⟩
   suffices round_down (coe_q ⟨false, e, m⟩) = ⟨false, e, m⟩ by
@@ -213,7 +216,7 @@ lemma round_down_coe [C : FloatCfg] (f : FloatRep) (h : f.valid) :
   norm_cast
   exact ne_of_gt C.prec_pos
 
-lemma coe_q_inj_valid [C : FloatCfg] {f1 f2 : FloatRep}
+lemma coe_q_inj_valid {f1 f2 : FloatRep C}
   (h : f1.valid) (h' : f2.valid) :
   coe_q f1 = coe_q f2 → f1 = f2 := by
   nth_rw 2 [<- round_down_coe (h := h), <- round_down_coe (h := h')]
@@ -243,8 +246,8 @@ lemma small_floor_aux {q : ℚ} {n : ℕ} (h : q < 1) (h' : 0 ≤ q) (n_pos : 0 
     exact Int.floor_lt.mpr this
   exact (mul_lt_iff_lt_one_left (by norm_cast : 0 < (n : ℚ))).2 h
 
-lemma round_down_valid [C : FloatCfg] (q : ℚ) (h : q ≠ 0):
-  (round_down q).valid := by
+lemma round_down_valid (q : ℚ) (h : q ≠ 0):
+  (round_down q : FloatRep C).valid := by
   simp only [round_down, zpow_neg]
   have m_nonneg : 0 ≤ |q| * (2 ^ Int.log 2 |q|)⁻¹ - 1 := by
     linarith [(mantissa_size_aux q h).1]
@@ -261,8 +264,8 @@ lemma small_ceil {q : ℚ} {n : ℕ} (h : q ≤ 1) (h' : 0 ≤ q) (n_nonneg : 0 
   exact mul_le_of_le_one_left (by norm_cast) h
 
 
-lemma round_up_valid [C : FloatCfg] (q : ℚ) (h' : q ≠ 0):
-  (round_up q).valid := by
+lemma round_up_valid (q : ℚ) (h' : q ≠ 0):
+  (round_up q : FloatRep C).valid := by
   by_cases h : ⌈(|q| * (2 ^ Int.log 2 |q|)⁻¹ - 1) * C.prec⌉.natAbs = C.prec
   <;> simp only [round_up, zpow_neg, h, ↓reduceIte]
   · exact C.prec_pos
@@ -275,7 +278,7 @@ lemma round_up_valid [C : FloatCfg] (q : ℚ) (h' : q ≠ 0):
     exact Nat.zero_le _
   exact h
 
-lemma round_up_coe [C : FloatCfg] (f : FloatRep) (h : f.valid) :
+lemma round_up_coe (f : FloatRep C) (h : f.valid) :
   round_up (coe_q f) = f := by
   rcases f with ⟨s, e, m⟩
   suffices round_up (coe_q ⟨false, e, m⟩) = ⟨false, e, m⟩ by
@@ -298,41 +301,50 @@ lemma round_up_coe [C : FloatCfg] (f : FloatRep) (h : f.valid) :
   norm_cast
   exact ne_of_gt C.prec_pos
 
-lemma round_nearest_eq_or [C : FloatCfg] (q : ℚ) :
-  round_nearest q = round_down q ∨ round_nearest q = round_up q := by
+lemma round_nearest_eq_or (q : ℚ) :
+  (round_nearest q : FloatRep C) = round_down q ∨ (round_nearest q : FloatRep C) = round_up q := by
   unfold round_nearest
   rcases round_down q with ⟨s, e, m⟩
   rcases round_up q with ⟨s', e', m'⟩
   repeat (first | split | tauto)
 
 
-lemma round_nearest_coe [C : FloatCfg] (f : FloatRep) (h : f.valid) :
+lemma round_nearest_coe (f : FloatRep C) (h : f.valid) :
   round_nearest (coe_q f) = f := by
   rcases round_nearest_eq_or (coe_q f) with h' | h'
   · rw [h', round_down_coe f h]
   rw [h', round_up_coe f h]
 
-lemma round_nearest_valid [C : FloatCfg] (q : ℚ) (h' : q ≠ 0) :
-  (round_nearest q).valid := by
+lemma round_nearest_valid (q : ℚ) (h' : q ≠ 0) :
+  (round_nearest q : FloatRep C).valid := by
   rcases round_nearest_eq_or q with h | h <;> rw [h]
   · exact round_down_valid q h'
   exact round_up_valid q h'
 
-def subnormal_to_q [C : FloatCfg] : Bool × ℕ →  ℚ
-| (b, m) =>
+
+structure SubnormRep (C : FloatCfg) where
+  (s : Bool) (m : ℕ)
+
+def SubnormRep.nonzero (f : SubnormRep C) : Prop := f.m > 0
+
+def subnormal_to_q : SubnormRep C →  ℚ
+| ⟨b, m⟩ =>
   let s := if b then -1 else 1
   s * (m / C.prec) * 2^C.emin
 
-def subnormal_round_down [C : FloatCfg] (q : ℚ) : Bool × ℕ :=
-  (q < 0, ⌊|q| * 2^(-C.emin) * C.prec⌋.natAbs)
+def subnormal_round_down (q : ℚ) : SubnormRep C :=
+  ⟨q < 0, ⌊|q| * 2^(-C.emin) * C.prec⌋.natAbs⟩
 
-lemma subnormal_round_down_coe [C : FloatCfg] (b : Bool) (m : ℕ) (m_nonneg : m > 0) :
-  subnormal_round_down (subnormal_to_q (b, m)) = (b, m) := by
+
+lemma subnormal_round_down_coe (s : SubnormRep C) (h : s.nonzero) :
+  subnormal_round_down (subnormal_to_q s) = s := by
+  rcases s with ⟨b, m⟩
   cases b <;> {
     simp only [subnormal_round_down, subnormal_to_q, Bool.false_eq_true, ↓reduceIte, one_mul,
-      zpow_neg, Prod.mk.injEq, decide_eq_false_iff_not, not_lt, ge_iff_le, neg_mul, one_mul, Left.neg_neg_iff,
+      zpow_neg, SubnormRep.mk.injEq, decide_eq_false_iff_not, not_lt, ge_iff_le, neg_mul, one_mul, Left.neg_neg_iff,
       decide_eq_true_iff, abs_neg]
     have : C.prec > 0 := C.prec_pos
+    have m_nonneg : m > 0 := h
     constructor
     · positivity
     rw [abs_of_pos (by positivity), mul_assoc, mul_assoc, <-mul_assoc (2 ^ _),
@@ -342,7 +354,7 @@ lemma subnormal_round_down_coe [C : FloatCfg] (b : Bool) (m : ℕ) (m_nonneg : m
     positivity
   }
 
-lemma subnormal_exp_small [C: FloatCfg] {q : ℚ} (q_nonneg : q ≠ 0)
+lemma subnormal_exp_small {q : ℚ} (q_nonneg : q ≠ 0)
   (h : Int.log 2 |q| < C.emin) : |q| * 2 ^ (-C.emin) < 1 := by
   set e := Int.log 2 |q|
   have q_term_small : |q| * 2^(-e) < 2 := by
@@ -359,27 +371,29 @@ lemma subnormal_exp_small [C: FloatCfg] {q : ℚ} (q_nonneg : q ≠ 0)
       ring
     _ < 1 := by linarith
 
-def ValidSubnormalRounding [C : FloatCfg] (f : ℚ → Bool × ℕ) : Prop :=
+def ValidSubnormalRounding (f : ℚ → SubnormRep C) : Prop :=
   ∀ q : ℚ, q ≠ 0 → Int.log 2 |q| < C.emin → (f q).2 ≤ C.prec
 
-lemma subnormal_round_down_valid [C : FloatCfg] :
-  ValidSubnormalRounding subnormal_round_down := by
+lemma subnormal_round_down_valid :
+  ValidSubnormalRounding (subnormal_round_down : ℚ → SubnormRep C) := by
   simp only [ValidSubnormalRounding, subnormal_round_down]
   intro q q_nonneg h
   apply le_of_lt
   exact small_floor_aux (subnormal_exp_small q_nonneg h) (by positivity) C.prec_pos
 
-def subnormal_round_up [C : FloatCfg] (q : ℚ) : Bool × ℕ :=
-  (q < 0, ⌈|q| * 2^(-C.emin) * C.prec⌉.natAbs)
+def subnormal_round_up (q : ℚ) : SubnormRep C :=
+  ⟨q < 0, ⌈|q| * 2^(-C.emin) * C.prec⌉.natAbs⟩
 
 -- This is essentially a copy of subnormal_round_down_coe
 -- FIX
-lemma subnormal_round_up_coe [C : FloatCfg] (b : Bool) (m : ℕ) (m_nonneg : m > 0) :
-  subnormal_round_up (subnormal_to_q (b, m)) = (b, m) := by
+lemma subnormal_round_up_coe (s : SubnormRep C) (h : s.nonzero) :
+  subnormal_round_up (subnormal_to_q s) = s := by
+  rcases s with ⟨b, m⟩
   cases b <;> {
     simp only [subnormal_round_up, subnormal_to_q, Bool.false_eq_true, ↓reduceIte, one_mul,
-      zpow_neg, Prod.mk.injEq, decide_eq_false_iff_not, not_lt, neg_mul, one_mul, Left.neg_neg_iff, decide_eq_true_eq, abs_neg]
+      zpow_neg, SubnormRep.mk.injEq, decide_eq_false_iff_not, not_lt, neg_mul, one_mul, Left.neg_neg_iff, decide_eq_true_eq, abs_neg]
     have : C.prec > 0 := C.prec_pos
+    have : m > 0 := h
     constructor
     · positivity
     rw [abs_of_pos (by positivity), mul_assoc, mul_assoc, <-mul_assoc (2 ^ _),
@@ -389,14 +403,14 @@ lemma subnormal_round_up_coe [C : FloatCfg] (b : Bool) (m : ℕ) (m_nonneg : m >
     positivity
   }
 
-lemma subnormal_round_up_valid [C : FloatCfg] :
-  ValidSubnormalRounding subnormal_round_up := by
+lemma subnormal_round_up_valid :
+  ValidSubnormalRounding (subnormal_round_up : ℚ → SubnormRep C) := by
   rw [ValidSubnormalRounding]
   intro q q_nonneg h
   rw [subnormal_round_up]
   apply small_ceil (le_of_lt (subnormal_exp_small q_nonneg h)) (by positivity) (le_of_lt C.prec_pos)
 
-def subnormal_round_nearest [C : FloatCfg] (q : ℚ) : Bool × ℕ :=
+def subnormal_round_nearest (q : ℚ) : SubnormRep C :=
   let sm := subnormal_round_down q
   let sm' := subnormal_round_up q
   if _ : |q| - sm.2 / C.prec < sm'.2 / C.prec - |q| then
@@ -408,21 +422,21 @@ def subnormal_round_nearest [C : FloatCfg] (q : ℚ) : Bool × ℕ :=
   else
     sm'
 
-lemma subnormal_round_nearest_eq [C : FloatCfg] (q : ℚ) :
-  subnormal_round_nearest q = subnormal_round_down q ∨
-  subnormal_round_nearest q = subnormal_round_up q := by
+lemma subnormal_round_nearest_eq (q : ℚ) :
+  (subnormal_round_nearest q : SubnormRep C) = subnormal_round_down q ∨
+  (subnormal_round_nearest q : SubnormRep C) = subnormal_round_up q := by
   unfold subnormal_round_nearest
   simp only [gt_iff_lt, ite_eq_left_iff, not_lt, tsub_le_iff_right]
   repeat (first | split | tauto)
 
-lemma subnormal_round_nearest_coe [C : FloatCfg] (f : Bool × ℕ) (h : f.2 > 0) :
-  subnormal_round_nearest (subnormal_to_q f) = f := by
-  rcases subnormal_round_nearest_eq (subnormal_to_q f) with h' | h' <;> rw [h']
-  · apply subnormal_round_down_coe f.1 f.2 h
-  exact subnormal_round_up_coe f.1 f.2 h
+lemma subnormal_round_nearest_coe (s : SubnormRep C) (h : s.nonzero) :
+  subnormal_round_nearest (subnormal_to_q s) = s := by
+  rcases subnormal_round_nearest_eq (subnormal_to_q s) with h' | h' <;> rw [h']
+  · apply subnormal_round_down_coe s h
+  exact subnormal_round_up_coe s h
 
-lemma subnormal_round_nearest_valid [C : FloatCfg] :
-  ValidSubnormalRounding subnormal_round_nearest := by
+lemma subnormal_round_nearest_valid :
+  ValidSubnormalRounding (subnormal_round_nearest : ℚ → SubnormRep C) := by
   simp only [ValidSubnormalRounding]
   intro q q_nonneg h
   rcases subnormal_round_nearest_eq q with h' | h' <;> rw [h']
@@ -430,15 +444,16 @@ lemma subnormal_round_nearest_valid [C : FloatCfg] :
   exact subnormal_round_up_valid q q_nonneg h
 
 
-def to_float [C : FloatCfg] (q : ℚ) : Flean.Float :=
-  match sem_def : round_down q with
+def to_float (q : ℚ) : Flean.Float :=
+  match sem_def : (round_down q : FloatRep C) with
   | ⟨s, e, m⟩ =>
   if q_nonneg : q = 0 then
-    Flean.Float.subnormal false 0 (C.prec_pos)
+    Flean.Float.subnormal C false 0 (C.prec_pos)
   else if h : e < C.emin then
     let sm := subnormal_round_nearest q
     if h_eq_prec : sm.2 = C.prec then by
-      refine Flean.Float.normal s (C.emin + 1) 0 ?_
+      refine @Flean.Float.normal ?_ C s (C.emin + 1) 0 ?_
+      · exact (fun x => fun _ => fun _ => x)
       refine ⟨by linarith, by linarith [C.emin_lt_emax], by linarith [C.prec_pos]⟩
     else by
       refine Flean.Float.subnormal sm.1 sm.2 ?_
@@ -457,19 +472,19 @@ def to_float [C : FloatCfg] (q : ℚ) : Flean.Float :=
     rw [this]
     exact round_down_valid q (q_nonneg)
 
-def to_rat [C : FloatCfg] : Flean.Float → ℚ
+def to_rat : Flean.Float → ℚ
 | Flean.Float.inf _ => 0
 | Flean.Float.nan => 0
-| Flean.Float.normal s e m _ => coe_q ⟨s, e, m⟩
-| Flean.Float.subnormal s m _ => subnormal_to_q ⟨s, m⟩
+| Flean.Float.normal C s e m _ => coe_q ⟨s, e, m⟩
+| Flean.Float.subnormal C s m _ => subnormal_to_q ⟨s, m⟩
 
 
-def IsFinite [C : FloatCfg] : Flean.Float → Prop
+def IsFinite : Flean.Float → Prop
 | Flean.Float.inf _ => false
 | Flean.Float.nan => false
 | _ => true
 
-def IsZero [C : FloatCfg] : Flean.Float → Prop
+def IsZero : Flean.Float → Prop
 | Flean.Float.subnormal _ 0 _ => true
 | _ => false
 
@@ -478,8 +493,17 @@ def DoubleCfg : FloatCfg := FloatCfg.mk (1 <<< 52) (-1022) 1023 (by norm_num) (
 )
 
 
-def C : FloatCfg := FloatCfg.mk 256 (-127) 127 (by norm_num) (by norm_num)
+def frep : FloatCfg := FloatCfg.mk 256 (-127) 127 (by norm_num) (by norm_num)
 
+def frep64 := FloatRep frep
+
+#eval ((@round_down frep 3.5) : frep64)
+#check (round_down 3.5 : frep64)
+#check (coe_q (⟨false, 0, 0⟩ : frep64))
 --#eval @to_rat C (@to_float C 3.528123042)
 --#eval @coe_q C (@round_down C 3.5)
 --#eval @round_down C 0
+
+
+-- Ideally I'd like to prove it for all FloatRep's with the corresponding
+--
