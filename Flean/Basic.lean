@@ -15,14 +15,14 @@ structure FloatCfg where
 structure FloatRep (α : FloatCfg) where
   (s : Bool) (e : ℤ) (m : ℕ)
 
-def ValidNormal {C : FloatCfg} (e : ℤ) (m : ℕ) : Prop :=
+def ValidNormal (C : FloatCfg) (e : ℤ) (m : ℕ) : Prop :=
   C.emin ≤ e ∧ e ≤ C.emax ∧ m < C.prec
 
-inductive Flean.Float where
-  | inf : Bool → Float
-  | nan : Float
-  | normal : (C : FloatCfg) → Bool → ∀ e m, ValidNormal e m → Float
-  | subnormal : (C : FloatCfg) → Bool → ∀ m, m < C.prec → Float
+inductive Flean.Float (C : FloatCfg) where
+  | inf : Bool → Float C
+  | nan : Float C
+  | normal : Bool → ∀ e m, ValidNormal C e m → Float C
+  | subnormal : Bool → ∀ m, m < C.prec → Float C
 
 variable {C : FloatCfg}
 
@@ -444,47 +444,51 @@ lemma subnormal_round_nearest_valid :
   exact subnormal_round_up_valid q q_nonneg h
 
 
-def to_float (q : ℚ) : Flean.Float :=
+def to_float (q : ℚ) : Flean.Float C :=
   match sem_def : (round_down q : FloatRep C) with
   | ⟨s, e, m⟩ =>
   if q_nonneg : q = 0 then
-    Flean.Float.subnormal C false 0 (C.prec_pos)
+    Flean.Float.subnormal false 0 (C.prec_pos)
   else if h : e < C.emin then
     let sm := subnormal_round_nearest q
     if h_eq_prec : sm.2 = C.prec then by
-      refine @Flean.Float.normal ?_ C s (C.emin + 1) 0 ?_
-      · exact (fun x => fun _ => fun _ => x)
+      refine Flean.Float.normal s (C.emin + 1) 0 ?_
       refine ⟨by linarith, by linarith [C.emin_lt_emax], by linarith [C.prec_pos]⟩
     else by
       refine Flean.Float.subnormal sm.1 sm.2 ?_
-      apply lt_of_le_of_ne ?_ h_eq_prec
-      have : e = (round_down q).2 := by
-        rw [sem_def]
-      rw [this] at h
-      exact subnormal_round_nearest_valid q q_nonneg h
+      · have : e = (round_down q : FloatRep C).e := by
+          rw [sem_def]
+        have : Int.log 2 |q| = e := by
+          rw [this, round_down]
+        apply lt_of_le_of_ne
+        · apply subnormal_round_nearest_valid q q_nonneg
+          rw [this]
+          exact h
+        exact h_eq_prec
   else if h' : e > C.emax then
     Flean.Float.inf s
   else by
     refine Flean.Float.normal s e m ?_
     refine ⟨Int.not_lt.mp h, Int.not_lt.mp h', ?_⟩
-    have : m = (round_down q).m := by
+    have : m = (round_down q : FloatRep C).m := by
       rw [sem_def]
     rw [this]
     exact round_down_valid q (q_nonneg)
 
-def to_rat : Flean.Float → ℚ
+
+def to_rat : Flean.Float C → ℚ
 | Flean.Float.inf _ => 0
 | Flean.Float.nan => 0
-| Flean.Float.normal C s e m _ => coe_q ⟨s, e, m⟩
-| Flean.Float.subnormal C s m _ => subnormal_to_q ⟨s, m⟩
+| Flean.Float.normal s e m _ => coe_q (⟨s, e, m⟩ : FloatRep C)
+| Flean.Float.subnormal s m _ => subnormal_to_q (⟨s, m⟩ : SubnormRep C)
 
 
-def IsFinite : Flean.Float → Prop
+def IsFinite : Flean.Float C → Prop
 | Flean.Float.inf _ => false
 | Flean.Float.nan => false
 | _ => true
 
-def IsZero : Flean.Float → Prop
+def IsZero : Flean.Float C → Prop
 | Flean.Float.subnormal _ 0 _ => true
 | _ => false
 
