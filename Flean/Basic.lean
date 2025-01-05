@@ -460,11 +460,10 @@ def to_float (q : ℚ) : Flean.Float C :=
           rw [sem_def]
         have : Int.log 2 |q| = e := by
           rw [this, round_down]
-        apply lt_of_le_of_ne
-        · apply subnormal_round_nearest_valid q q_nonneg
-          rw [this]
-          exact h
-        exact h_eq_prec
+        refine lt_of_le_of_ne ?_ h_eq_prec
+        apply subnormal_round_nearest_valid q q_nonneg
+        rw [this]
+        exact h
   else if h' : e > C.emax then
     Flean.Float.inf s
   else by
