@@ -9,15 +9,6 @@ import Flean.LogRules
 structure FloatRep (α : FloatCfg) where
   (s : Bool) (e : ℤ) (m : ℕ)
 
-def ValidNormal (C : FloatCfg) (e : ℤ) (m : ℕ) : Prop :=
-  C.emin ≤ e ∧ e ≤ C.emax ∧ m < C.prec
-
-inductive Flean.Float (C : FloatCfg) where
-  | inf : Bool → Float C
-  | nan : Float C
-  | normal : Bool → ∀ e m, ValidNormal C e m → Float C
-  | subnormal : Bool → ∀ m, m < C.prec → Float C
-
 variable {C : FloatCfg}
 
 instance : Repr (FloatRep C) where
@@ -28,7 +19,7 @@ def FloatRep.decEq (f1 f2 : FloatRep C) : Decidable (Eq f1 f2) := by
   rw [FloatRep.mk.injEq]
   exact instDecidableAnd
 
-def FloatRep.valid (f : FloatRep C) : Prop := f.m < C.prec
+def FloatRep.valid_m (f : FloatRep C) : Prop := f.m < C.prec
 
 def round_down (q : ℚ) : FloatRep C :=
   let exp := Int.log 2 |q|
@@ -145,7 +136,7 @@ lemma round_up_neg (q : ℚ) (h : q ≠ 0) :
   by_cases h'' : ⌈(|q| * (2 ^ Int.log 2 |q|)⁻¹ - 1) * C.prec⌉.natAbs = C.prec
   <;> simp [round_up, Flean.neg, this, le_of_lt this, h'']
 
-lemma round_down_coe (f : FloatRep C) (h : f.valid) :
+lemma round_down_coe (f : FloatRep C) (h : f.valid_m) :
   round_down (coe_q f) = f := by
   rcases f with ⟨s, e, m⟩
   suffices round_down (coe_q ⟨false, e, m⟩) = ⟨false, e, m⟩ by
@@ -166,14 +157,14 @@ lemma round_down_coe (f : FloatRep C) (h : f.valid) :
   exact ne_of_gt C.prec_pos
 
 lemma coe_q_inj_valid {f1 f2 : FloatRep C}
-  (h : f1.valid) (h' : f2.valid) :
+  (h : f1.valid_m) (h' : f2.valid_m) :
   coe_q f1 = coe_q f2 → f1 = f2 := by
   nth_rw 2 [<- round_down_coe (h := h), <- round_down_coe (h := h')]
   exact fun a ↦ congrArg round_down a
 
 
 lemma round_down_valid (q : ℚ) (h : q ≠ 0):
-  (round_down q : FloatRep C).valid := by
+  (round_down q : FloatRep C).valid_m := by
   simp only [round_down, zpow_neg]
   have m_nonneg : 0 ≤ |q| * (2 ^ Int.log 2 |q|)⁻¹ - 1 := by
     linarith [(mantissa_size_aux q h).1]
@@ -183,11 +174,11 @@ lemma round_down_valid (q : ℚ) (h : q ≠ 0):
 
 
 lemma round_up_valid (q : ℚ) (h' : q ≠ 0):
-  (round_up q : FloatRep C).valid := by
+  (round_up q : FloatRep C).valid_m := by
   by_cases h : ⌈(|q| * (2 ^ Int.log 2 |q|)⁻¹ - 1) * C.prec⌉.natAbs = C.prec
   <;> simp only [round_up, zpow_neg, h, ↓reduceIte]
   · exact C.prec_pos
-  rw [FloatRep.valid]; dsimp
+  rw [FloatRep.valid_m]; dsimp
   have : (|q| * (2 ^ Int.log 2 |q|)⁻¹ - 1) ≤ 1 := by
     linarith [(mantissa_size_aux q h').2]
   apply lt_of_le_of_ne
@@ -196,7 +187,7 @@ lemma round_up_valid (q : ℚ) (h' : q ≠ 0):
     exact Nat.zero_le _
   exact h
 
-lemma round_up_coe (f : FloatRep C) (h : f.valid) :
+lemma round_up_coe (f : FloatRep C) (h : f.valid_m) :
   round_up (coe_q f) = f := by
   rcases f with ⟨s, e, m⟩
   suffices round_up (coe_q ⟨false, e, m⟩) = ⟨false, e, m⟩ by
@@ -227,14 +218,14 @@ lemma round_nearest_eq_or (q : ℚ) :
   repeat (first | split | tauto)
 
 
-lemma round_nearest_coe (f : FloatRep C) (h : f.valid) :
+lemma round_nearest_coe (f : FloatRep C) (h : f.valid_m) :
   round_nearest (coe_q f) = f := by
   rcases round_nearest_eq_or (coe_q f) with h' | h'
   · rw [h', round_down_coe f h]
   rw [h', round_up_coe f h]
 
 lemma round_nearest_valid (q : ℚ) (h' : q ≠ 0) :
-  (round_nearest q : FloatRep C).valid := by
+  (round_nearest q : FloatRep C).valid_m := by
   rcases round_nearest_eq_or q with h | h <;> rw [h]
   · exact round_down_valid q h'
   exact round_up_valid q h'
