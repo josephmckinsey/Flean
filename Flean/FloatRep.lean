@@ -56,7 +56,7 @@ def coe_q : FloatRep C → ℚ
 --instance : Coe (FloatRep C) ℚ where
   --coe := coe_q
 
-lemma coe_false_pos {e : ℤ} {m : ℕ} :
+lemma coe_q_false_pos {e : ℤ} {m : ℕ} :
   coe_q (⟨false, e, m⟩ : FloatRep C) > 0 := by
   simp [coe_q]
   suffices ((m : ℚ) / C.prec + 1) > 0 by
@@ -95,10 +95,10 @@ lemma round_down_of_neg (q : ℚ) (h : q ≠ 0) :
 lemma neg_false (e : ℤ) (m : ℕ) : ⟨true, e, m⟩ = (Flean.neg ⟨false, e, m⟩ : FloatRep C) := rfl
 lemma neg_true (e : ℤ) (m : ℕ) : ⟨false, e, m⟩ = (Flean.neg ⟨true, e, m⟩ : FloatRep C) := rfl
 
-lemma coe_q_false_neg {e : ℤ} {m : ℕ} :
+lemma coe_q_true_neg {e : ℤ} {m : ℕ} :
   coe_q (⟨true, e, m⟩ : FloatRep C) < 0 := by
   rw [neg_false, coe_q_of_neg]
-  simp only [Left.neg_neg_iff, gt_iff_lt, coe_false_pos]
+  simp only [Left.neg_neg_iff, gt_iff_lt, coe_q_false_pos]
 
 lemma coe_q_of_Cprec (b : Bool) (e : ℤ) :
   coe_q (⟨b, e, C.prec⟩ : FloatRep C) = (if b then -1 else 1) * 2^(e + 1) := by
@@ -145,7 +145,7 @@ lemma round_down_coe (f : FloatRep C) (h : f.valid_m) :
     rw [neg_false, coe_q_of_neg, round_down_of_neg,
       neg_invertible.injective.eq_iff]
     · exact this
-    symm; apply ne_of_lt coe_false_pos
+    symm; apply ne_of_lt coe_q_false_pos
   simp only [round_down, coe_q, Bool.false_eq_true, ↓reduceIte, one_mul,
     zpow_neg, FloatRep.mk.injEq, decide_eq_false_iff_not, not_lt]
   refine ⟨?_, ?_, ?_⟩
@@ -196,7 +196,7 @@ lemma round_up_coe (f : FloatRep C) (h : f.valid_m) :
     rw [neg_false, coe_q_of_neg, round_up_neg,
       neg_invertible.injective.eq_iff]
     · exact this
-    symm; apply ne_of_lt coe_false_pos
+    symm; apply ne_of_lt coe_q_false_pos
   simp only [coe_q, Bool.false_eq_true, ↓reduceIte, one_mul]
   refine coe_q_inj_valid ?_ h ?_
   · refine round_up_valid _ ?_
