@@ -166,6 +166,34 @@ lemma log_zero_to_one_lt (x : ℚ) (e : ℤ) (h : 0 < x) (h' : x < 1) :
     exact h'
   positivity
 
+lemma normal_range (f : FloatRep C) (ve : f.valid_e) (vm : f.valid_m) :
+  C.emin ≤ Int.log 2 |coe_q f| ∧ Int.log 2 |coe_q f| ≤ C.emax := by
+  rw [coe_q]
+  rcases f with ⟨s, e, m⟩
+  cases s <;> {
+    constructor
+    <;> simp only [Bool.false_eq_true, ↓reduceIte, one_mul, neg_one_mul, neg_mul, abs_neg, q_exp_eq_exp vm]
+    · exact ve.1
+    exact ve.2
+  }
+
+
+lemma subnormal_range (f : SubnormRep C) (vm : f.m < C.prec) (ne_zero : f.nonzero) :
+  Int.log 2 |subnormal_to_q f| < C.emin := by
+  rw [subnormal_to_q]
+  rw [SubnormRep.nonzero] at ne_zero
+  rcases f with ⟨s, m⟩
+  cases s <;> {
+    simp only [Bool.false_eq_true, ↓reduceIte, neg_mul, one_mul, abs_neg]
+    have man_ge_0 : 0 < (m : ℚ) / C.prec := by
+      have := C.prec_pos
+      positivity
+    have man_lt_1 : (m : ℚ) / C.prec < 1 := by
+      rw [div_lt_one (by norm_cast; exact C.prec_pos)]
+      norm_cast
+    exact log_zero_to_one_lt ((m : ℚ) / C.prec) C.emin man_ge_0 man_lt_1
+  }
+
 
 lemma to_floar_to_rat [R : Rounding] (f : Flean.Float C) (finite : f.IsFinite) (nonzero : ¬f.IsZero) :
   to_float (to_rat f) = f := by
@@ -173,30 +201,19 @@ lemma to_floar_to_rat [R : Rounding] (f : Flean.Float C) (finite : f.IsFinite) (
   --simp [Flean.Float.IsZero] at nonzero
   rcases f with _ | _ | ⟨f, ve, vm⟩ | ⟨sm, vm⟩
   <;> simp only at finite nonzero
-  have : coe_q f ≠ 0 := by
-    rcases f with ⟨s, e, m⟩
-    cases s
-    · linarith [coe_q_false_pos (C := C) (e := e) (m := m)]
-    linarith [coe_q_true_neg (C := C) (e := e) (m := m)]
-  · have : C.emin ≤ Int.log 2 |coe_q f| := by
-      rw [coe_q]
-      wlog h : f.s = false
-      · rw [Bool.not_eq_false] at h
-        rw [h]
-        simp only [↓reduceIte, neg_one_mul, neg_mul, one_mul, abs_neg, q_exp_eq_exp vm]
-        exact ve.1
-      rw [h]
-      simp only [Bool.false_eq_true, ↓reduceIte, one_mul, q_exp_eq_exp vm]
-      exact ve.1
+  · have : coe_q f ≠ 0 := by
+      rcases f with ⟨s, e, m⟩
+      cases s
+      · linarith [coe_q_false_pos (C := C) (e := e) (m := m)]
+      linarith [coe_q_true_neg (C := C) (e := e) (m := m)]
     simp only [to_rat]
     unfold to_float
-    split
+    split_ifs
     · contradiction
-    split
-    · linarith
+    · linarith [(normal_range f ve vm).1]
     have : round_rep (coe_q f) = f := round_rep_coe f vm
     dsimp
-    split
+    split_ifs
     · rw [this] at *
       linarith [ve.2]
     simp [this]
@@ -204,36 +221,23 @@ lemma to_floar_to_rat [R : Rounding] (f : Flean.Float C) (finite : f.IsFinite) (
     rw [<-is_zero_iff_subnormal_to_q _ vm] at nonzero
     rw [subnorm_eq_0_iff_to_q] at nonzero
     exact nonzero
-  have : Int.log 2 |subnormal_to_q sm| < C.emin := by
-    rw [subnormal_to_q]
-    rcases sm with ⟨s, m⟩
-    cases s <;> {
-      simp only [Bool.false_eq_true, ↓reduceIte, neg_mul, one_mul, abs_neg]
-      have man_ge_0 : 0 < (m : ℚ) / C.prec := by
-        have := C.prec_pos
-        positivity
-      have man_lt_1 : (m : ℚ) / C.prec < 1 := by
-        rw [div_lt_one (by norm_cast; exact C.prec_pos)]
-        norm_cast
-      exact log_zero_to_one_lt ((m : ℚ) / C.prec) C.emin man_ge_0 man_lt_1
-    }
+  have := subnormal_range sm vm sm_nonzero
   simp only [to_rat]
   unfold to_float
+  have snormal_eq := subnormal_round_coe sm sm_nonzero
   if mzero : subnormal_to_q sm = 0 then
     rw [is_zero_iff_subnormal_to_q _ vm] at mzero
     contradiction
   else
-    split
-    · contradiction
-    simp
-    have snormal_eq : subnormal_round (subnormal_to_q sm) = sm := by
-      apply subnormal_round_coe sm
-      unfold SubnormRep.nonzero
-      exact Nat.zero_lt_of_ne_zero sm_nonzero
-    split
-    · rw [snormal_eq] at *
+    if h_eq_pres : sm.2 = C.prec then
+      rw [<-snormal_eq] at h_eq_pres
+      simp only [mzero, this, h_eq_pres, ↓reduceDIte, reduceCtorEq]
+      rw [snormal_eq] at h_eq_pres
       linarith
-    congr
+    else
+      rw [<-snormal_eq] at h_eq_pres
+      simp only [mzero, this, h_eq_pres, ↓reduceDIte, Flean.Float.subnormal.injEq]
+      rw [snormal_eq]
 
 
 

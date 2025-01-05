@@ -6,7 +6,7 @@ variable {C : FloatCfg}
 structure SubnormRep (C : FloatCfg) where
   (s : Bool) (m : ℕ)
 
-def SubnormRep.nonzero (f : SubnormRep C) : Prop := f.m > 0
+def SubnormRep.nonzero (f : SubnormRep C) : Prop := f.m ≠ 0
 
 def subnormal_to_q : SubnormRep C →  ℚ
 | ⟨b, m⟩ =>
@@ -25,7 +25,7 @@ lemma subnormal_round_down_coe (s : SubnormRep C) (h : s.nonzero) :
       zpow_neg, SubnormRep.mk.injEq, decide_eq_false_iff_not, not_lt, ge_iff_le, neg_mul, one_mul, Left.neg_neg_iff,
       decide_eq_true_iff, abs_neg]
     have : C.prec > 0 := C.prec_pos
-    have m_nonneg : m > 0 := h
+    have m_nonneg : m > 0 := Nat.zero_lt_of_ne_zero h
     constructor
     · positivity
     rw [abs_of_pos (by positivity), mul_assoc, mul_assoc, <-mul_assoc (2 ^ _),
@@ -74,7 +74,7 @@ lemma subnormal_round_up_coe (s : SubnormRep C) (h : s.nonzero) :
     simp only [subnormal_round_up, subnormal_to_q, Bool.false_eq_true, ↓reduceIte, one_mul,
       zpow_neg, SubnormRep.mk.injEq, decide_eq_false_iff_not, not_lt, neg_mul, one_mul, Left.neg_neg_iff, decide_eq_true_eq, abs_neg]
     have : C.prec > 0 := C.prec_pos
-    have : m > 0 := h
+    have : m > 0 := Nat.zero_lt_of_ne_zero h
     constructor
     · positivity
     rw [abs_of_pos (by positivity), mul_assoc, mul_assoc, <-mul_assoc (2 ^ _),
