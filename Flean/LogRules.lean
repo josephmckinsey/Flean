@@ -24,10 +24,23 @@ lemma log_one_to_two_eq {b : ℕ} {e : ℤ} (h : 1 < b) {x : ℚ} (h' : 1 ≤ x)
   nth_rw 1 [<-one_mul ((b : ℚ)^e)]
   exact (mul_le_mul_right (zpow_pos bpos e)).mpr h'
 
+lemma log_zero_to_one_lt (x : ℚ) (e : ℤ) (h : 0 < x) (h' : x < 1) :
+  Int.log 2 |x * 2 ^ e| < e := by
+  rw [<-Int.lt_zpow_iff_log_lt (by norm_num)]
+  · rw [abs_of_nonneg (by positivity)]
+    simp only [Nat.cast_ofNat]
+    rw [mul_lt_iff_lt_one_left (by positivity)]
+    exact h'
+  positivity
 
 lemma mantissa_ge_one {m : ℕ} : 1 ≤ ((m : ℚ) / C.prec + 1) := by
   suffices 0 ≤ (m : ℚ) / C.prec by linarith
   positivity
+
+lemma mantissa_lt_two {m : ℕ} (h : m < C.prec) : ((m : ℚ) / C.prec + 1) < 2 := by
+  suffices (m : ℚ) / C.prec < 1 by linarith
+  apply (div_lt_one (by norm_cast; exact C.prec_pos)).mpr
+  norm_cast
 
 --lemma mantissa_2e_pos {e : ℤ} {m : ℕ} : 0 < ((m : ℚ) / C.prec + 1) * 2^e := by
 --  positivity

@@ -26,49 +26,11 @@ lemma subnormal_round_coe [R : Rounding] (s : SubnormRep C) (h : s.nonzero) :
   · exact subnormal_round_down_coe s h
   exact subnormal_round_up_coe s h
 
-def round_rep [R : Rounding] (q : ℚ) : FloatRep C :=
-  match R.mode with
-  | RoundingMode.nearest => round_nearest q
-  | RoundingMode.down => round_down q
-  | RoundingMode.up => round_up q
-
-lemma round_rep_coe [R : Rounding] (f : FloatRep C) (h : f.valid_m) :
-  round_rep (coe_q f) = f := by
-  rw [round_rep]
-  split
-  · exact round_nearest_coe f h
-  · exact round_down_coe f h
-  exact round_up_coe f h
-
-def FloatRep.valid_e (f : FloatRep C) : Prop := C.emin ≤ f.e ∧ f.e ≤ C.emax
-
 inductive Flean.Float (C : FloatCfg) where
   | inf : Bool → Float C
   | nan : Float C
   | normal : (f : FloatRep C) → f.valid_e → f.valid_m → Float C
   | subnormal : (sm : SubnormRep C) → sm.m < C.prec → Float C
-
-lemma round_valid_m [R : Rounding] (q : ℚ) (q_nezero: q ≠ 0) :
-  (round_rep q : FloatRep C).valid_m := by
-  unfold round_rep
-  split
-  · exact round_nearest_valid q q_nezero
-  · exact round_down_valid q q_nezero
-  exact round_up_valid q q_nezero
-
-lemma round_min_e [R : Rounding] (q : ℚ) :
-  Int.log 2 |q| ≤ (round_rep q : FloatRep C).e := by
-  suffices Int.log 2 |q| ≤ (round_up q : FloatRep C).e ∧
-    Int.log 2 |q| ≤ (round_down q : FloatRep C).e by
-    unfold round_rep
-    split <;> (try exact this.1; try exact this.2)
-    rcases round_nearest_eq_or q with h | h <;> rw [h]
-    · exact this.2
-    · exact this.1
-    exact this.2
-  refine ⟨?_, by simp [round_down]⟩
-  rw [round_up]
-  split <;> simp
 
 
 def to_float [R : Rounding] (q : ℚ) : Flean.Float C :=
@@ -157,27 +119,6 @@ lemma is_zero_iff_subnormal_to_q (sm : SubnormRep C) (h : sm.m < C.prec) :
     rw [sm_def]
   simp at h'
 
-lemma log_zero_to_one_lt (x : ℚ) (e : ℤ) (h : 0 < x) (h' : x < 1) :
-  Int.log 2 |x * 2 ^ e| < e := by
-  rw [<-Int.lt_zpow_iff_log_lt (by norm_num)]
-  · rw [abs_of_nonneg (by positivity)]
-    simp only [Nat.cast_ofNat]
-    rw [mul_lt_iff_lt_one_left (by positivity)]
-    exact h'
-  positivity
-
-lemma normal_range (f : FloatRep C) (ve : f.valid_e) (vm : f.valid_m) :
-  C.emin ≤ Int.log 2 |coe_q f| ∧ Int.log 2 |coe_q f| ≤ C.emax := by
-  rw [coe_q]
-  rcases f with ⟨s, e, m⟩
-  cases s <;> {
-    constructor
-    <;> simp only [Bool.false_eq_true, ↓reduceIte, one_mul, neg_one_mul, neg_mul, abs_neg, q_exp_eq_exp vm]
-    · exact ve.1
-    exact ve.2
-  }
-
-
 lemma subnormal_range (f : SubnormRep C) (vm : f.m < C.prec) (ne_zero : f.nonzero) :
   Int.log 2 |subnormal_to_q f| < C.emin := by
   rw [subnormal_to_q]
@@ -194,34 +135,32 @@ lemma subnormal_range (f : SubnormRep C) (vm : f.m < C.prec) (ne_zero : f.nonzer
     exact log_zero_to_one_lt ((m : ℚ) / C.prec) C.emin man_ge_0 man_lt_1
   }
 
-lemma normal_range' (m : ℕ) (e : ℤ) (vm : m < C.prec) (ve2 : e ≤ C.emax) :
-  |((m : ℚ) / ↑C.prec + 1) * 2 ^ e| ≤ (2 - 1 / ↑C.prec) * 2 ^ C.emax := by
-  have := C.prec_pos
-  have : (1 : ℚ) / C.prec ≤ 1 := by
-    rw [one_div_le]
-    · simp only [ne_eq, one_ne_zero, not_false_eq_true, div_self, Nat.one_le_cast]
-      exact this
-    · exact Nat.cast_pos'.mpr this
-    norm_num
-  have : 0 < (2 - (1 : ℚ) / C.prec) := by linarith
-  rw [abs_mul]
-  gcongr
-  · rw [abs_of_nonneg (by positivity)]
-    suffices (m + (1 : ℚ)) / C.prec ≤ 1 by
-      rw [add_div] at this
-      linarith
-    rw [div_le_one (by norm_cast)]
-    suffices m + 1 < C.prec + 1 by
-      norm_cast
-    linarith [vm]
-  rw [abs_of_nonneg (by positivity)]
-  rw [zpow_le_zpow_iff_right₀ (by norm_num)]
-  exact ve2
+def max_float (C : FloatCfg) : Flean.Float C := by
+  refine Flean.Float.normal (max_float_rep C) ?_ ?_
+  · simp [max_float_rep, FloatRep.valid_e, FloatRep.valid_m, le_of_lt C.emin_lt_emax]
+  simp [max_float_rep, FloatRep.valid_m, C.prec_pos]
+
+lemma to_rat_max_float :
+  to_rat (max_float C) = max_float_q C := by
+  simp only [to_rat, max_float, coe_q_max_float_rep]
+
+lemma log_lt_emax_of_max_float (q : ℚ) (q_nonneg : q ≠ 0) (h : |q| ≤ max_float_q C) :
+  Int.log 2 |q| ≤ C.emax := by
+  suffices Int.log 2 |q| < C.emax + 1 by linarith
+  rw [<-Int.lt_zpow_iff_log_lt (by norm_num) (by positivity)]
+  unfold max_float_q at h
+  apply lt_of_le_of_lt h
+  rw [zpow_add₀ (by norm_num)]
+  rw [mul_comm]
+  apply mul_lt_mul' ?_ ?_ (by linarith [max_mantissa_q C]) (by positivity)
+  · rfl
+  linarith [max_mantissa_q C]
 
 
 lemma float_range (f : Flean.Float C) :
-  |to_rat f| ≤ (2 - (1 : ℚ)/C.prec) *  2^C.emax := by
+  |to_rat f| ≤ max_float_q C := by
   unfold to_rat
+  unfold max_float_q
   have : (1 : ℚ) / C.prec ≤ 1 := by
     rw [one_div_le]
     · simp only [ne_eq, one_ne_zero, not_false_eq_true, div_self, Nat.one_le_cast]
@@ -314,6 +253,22 @@ lemma to_floar_to_rat [R : Rounding] (f : Flean.Float C) (finite : f.IsFinite) (
       simp only [mzero, this, h_eq_pres, ↓reduceDIte, Flean.Float.subnormal.injEq]
       rw [snormal_eq]
 
+lemma to_float_in_range [R : Rounding] (q : ℚ) (h : |q| ≤ max_float_q C) :
+  (to_float q : Flean.Float C).IsFinite := by
+  unfold to_float
+  split_ifs
+  · simp [Flean.Float.IsFinite]
+  · dsimp
+    split_ifs <;> simp [Flean.Float.IsFinite]
+  simp only [Flean.Float.IsFinite]
+
+  sorry
+
+
+-- This is wrong. Why?
+-- example [R : Rounding] (q : ℚ) (h : |q| ≤ max_float_q C ) :
+  --|to_rat (to_float q : Flean.Float C) - q| ≤ 1/C.prec := by
+  --sorry
 
 
 def DoubleCfg : FloatCfg := FloatCfg.mk (1 <<< 52) (-1022) 1023 (by norm_num) (
@@ -325,13 +280,9 @@ def frep : FloatCfg := FloatCfg.mk 256 (-127) 127 (by norm_num) (by norm_num)
 
 def frep64 := FloatRep frep
 
-#eval ((@round_down frep 3.5) : frep64)
-#check (round_down 3.5 : frep64)
-#check (coe_q (⟨false, 0, 0⟩ : frep64))
+--#eval ((@round_down frep 3.5) : frep64)
+--#check (round_down 3.5 : frep64)
+--#check (coe_q (⟨false, 0, 0⟩ : frep64))
 --#eval @to_rat C (@to_float C 3.528123042)
 --#eval @coe_q C (@round_down C 3.5)
 --#eval @round_down C 0
-
-
--- Ideally I'd like to prove it for all FloatRep's with the corresponding
---
