@@ -194,6 +194,81 @@ lemma subnormal_range (f : SubnormRep C) (vm : f.m < C.prec) (ne_zero : f.nonzer
     exact log_zero_to_one_lt ((m : ℚ) / C.prec) C.emin man_ge_0 man_lt_1
   }
 
+lemma normal_range' (m : ℕ) (e : ℤ) (vm : m < C.prec) (ve2 : e ≤ C.emax) :
+  |((m : ℚ) / ↑C.prec + 1) * 2 ^ e| ≤ (2 - 1 / ↑C.prec) * 2 ^ C.emax := by
+  have := C.prec_pos
+  have : (1 : ℚ) / C.prec ≤ 1 := by
+    rw [one_div_le]
+    · simp only [ne_eq, one_ne_zero, not_false_eq_true, div_self, Nat.one_le_cast]
+      exact this
+    · exact Nat.cast_pos'.mpr this
+    norm_num
+  have : 0 < (2 - (1 : ℚ) / C.prec) := by linarith
+  rw [abs_mul]
+  gcongr
+  · rw [abs_of_nonneg (by positivity)]
+    suffices (m + (1 : ℚ)) / C.prec ≤ 1 by
+      rw [add_div] at this
+      linarith
+    rw [div_le_one (by norm_cast)]
+    suffices m + 1 < C.prec + 1 by
+      norm_cast
+    linarith [vm]
+  rw [abs_of_nonneg (by positivity)]
+  rw [zpow_le_zpow_iff_right₀ (by norm_num)]
+  exact ve2
+
+
+lemma float_range (f : Flean.Float C) :
+  |to_rat f| ≤ (2 - (1 : ℚ)/C.prec) *  2^C.emax := by
+  unfold to_rat
+  have : (1 : ℚ) / C.prec ≤ 1 := by
+    rw [one_div_le]
+    · simp only [ne_eq, one_ne_zero, not_false_eq_true, div_self, Nat.one_le_cast]
+      exact C.prec_pos
+    · exact Nat.cast_pos'.mpr C.prec_pos
+    norm_num
+  have : 0 < (2 - (1 : ℚ) / C.prec) := by linarith
+  have := C.prec_pos
+  rcases f with _ | _ | ⟨f, ve, vm⟩ | ⟨sm, vm⟩
+  · simp only [abs_zero]; positivity
+  · positivity
+  · dsimp
+    rw [coe_q]
+    cases f.s
+    <;> {
+      simp only [Bool.false_eq_true, ↓reduceIte, one_mul, ge_iff_le,
+      neg_mul, abs_neg
+      ]
+      apply normal_range'
+      · exact vm
+      exact ve.2
+    }
+  dsimp
+  apply le_of_lt
+  calc
+    |subnormal_to_q sm| < (2 : ℚ)^C.emin := by
+      by_cases h : 0 < |subnormal_to_q sm|
+      · suffices Int.log 2 |subnormal_to_q sm| < C.emin by
+          rw [<-Int.lt_zpow_iff_log_lt] at this
+          · norm_cast at this
+          · norm_num
+          exact h
+        apply subnormal_range
+        · exact vm
+        contrapose h
+        simp only [abs_pos, ne_eq, Decidable.not_not]
+        simp only [SubnormRep.nonzero, ne_eq, Decidable.not_not] at h
+        exact (subnorm_eq_0_iff_to_q sm).mpr h
+      simp at h
+      rw [h]
+      positivity
+    _ < (2 - 1 / ↑C.prec) * 2 ^ C.emax := by
+      rw [<-one_mul (2 ^ _)]
+      apply mul_lt_mul' ?_ ?_ (by positivity) (by positivity)
+      · linarith
+      apply zpow_lt_zpow_right₀ (by norm_num) C.emin_lt_emax
+
 
 lemma to_floar_to_rat [R : Rounding] (f : Flean.Float C) (finite : f.IsFinite) (nonzero : ¬f.IsZero) :
   to_float (to_rat f) = f := by
