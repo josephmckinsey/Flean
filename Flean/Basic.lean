@@ -253,6 +253,7 @@ lemma to_floar_to_rat [R : Rounding] (f : Flean.Float C) (finite : f.IsFinite) (
       simp only [mzero, this, h_eq_pres, ↓reduceDIte, Flean.Float.subnormal.injEq]
       rw [snormal_eq]
 
+/-
 lemma to_float_in_range [R : Rounding] (q : ℚ) (h : |q| ≤ max_float_q C) :
   (to_float q : Flean.Float C).IsFinite := by
   unfold to_float
@@ -261,9 +262,9 @@ lemma to_float_in_range [R : Rounding] (q : ℚ) (h : |q| ≤ max_float_q C) :
   · dsimp
     split_ifs <;> simp [Flean.Float.IsFinite]
   simp only [Flean.Float.IsFinite]
-
   sorry
 
+-/
 
 -- This is wrong. Why?
 -- example [R : Rounding] (q : ℚ) (h : |q| ≤ max_float_q C ) :

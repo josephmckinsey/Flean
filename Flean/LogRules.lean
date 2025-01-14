@@ -6,6 +6,14 @@ import Flean.FloatCfg
 
 variable {C : FloatCfg}
 
+lemma le_log_of_ge_1 {b : ℕ} {e : ℤ} (h : 1 < b) {x : ℚ} (h' : 1 ≤ x) :
+  e ≤ Int.log b (x * b ^ e) := by
+  suffices b^e ≤ x * b^e by
+    apply (Int.zpow_le_iff_le_log (b := b) h (by positivity)).1
+    exact this
+  nth_rw 1 [<-one_mul ((b : ℚ)^e)]
+  exact (mul_le_mul_right (zpow_pos (by positivity) e)).mpr h'
+
 lemma log_one_to_two_eq {b : ℕ} {e : ℤ} (h : 1 < b) {x : ℚ} (h' : 1 ≤ x) (h'' : x < b) :
   Int.log b (x * b ^ e) = e := by
   have bpos : (0 : ℚ) < b := by norm_cast; linarith
@@ -18,11 +26,7 @@ lemma log_one_to_two_eq {b : ℕ} {e : ℤ} (h : 1 < b) {x : ℚ} (h' : 1 ≤ x)
       linarith
     rw [zpow_add_one₀ (by linarith), mul_comm]
     exact (mul_lt_mul_left (zpow_pos bpos e)).mpr h''
-  suffices b^e ≤ x * b^e by
-    apply (Int.zpow_le_iff_le_log (b := b) h (x_be_pos)).1
-    exact this
-  nth_rw 1 [<-one_mul ((b : ℚ)^e)]
-  exact (mul_le_mul_right (zpow_pos bpos e)).mpr h'
+  exact le_log_of_ge_1 h h'
 
 lemma log_zero_to_one_lt (x : ℚ) (e : ℤ) (h : 0 < x) (h' : x < 1) :
   Int.log 2 |x * 2 ^ e| < e := by
