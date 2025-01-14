@@ -601,7 +601,7 @@ lemma le_pos_iff_round_down_le (q1 q2 : ℚ) (q1_nezero : q1 ≠ 0) (q2_nezero :
   · norm_num
   exact Int.le_of_eq (h.symm)
 
-lemma le_iff_round_down_le (q1 q2 : ℚ) (q1_nezero : q1 ≠ 0) (q2_nezero : q2 ≠ 0) :
+lemma le_if_round_down_le (q1 q2 : ℚ) (q1_nezero : q1 ≠ 0) (q2_nezero : q2 ≠ 0) :
   q1 ≤ q2 → coe_q (round_down q1 : FloatRep C) ≤ coe_q (round_down q2 : FloatRep C) := by
   rw [<-floatrep_le_iff_coe_q_le (vm1 := round_down_valid q1 q1_nezero)
     (vm2 := round_down_valid q2 q2_nezero)]
@@ -644,71 +644,11 @@ lemma le_iff_round_down_le (q1 q2 : ℚ) (q1_nezero : q1 ≠ 0) (q2_nezero : q2 
 lemma round_down_false_of_le_coe_aux (q : ℚ) (e : ℤ) (m : ℕ) (vm : m < C.prec) (q_pos : 0 < q)
   (h : q ≤ coe_q (⟨false, e, m⟩ : FloatRep C)) :
   coe_q (round_down q : FloatRep C) ≤ coe_q (⟨false, e, m⟩ : FloatRep C) := by
-  simp [coe_q, round_down]
-  split
-  · linarith
-  have h_log := Int.log_mono_right (b := 2) q_pos h
-  have : (2 : ℚ) ^ Int.log 2 |q| ≤ 2^e := by
-    rw [abs_of_pos q_pos]
-    simp [coe_q] at h_log
-    have : Int.log 2 (((m : ℚ) / C.prec + 1) * 2^e) = e :=
-      log_one_to_two_eq (by norm_num) mantissa_ge_one (mantissa_lt_two vm)
-    rw [this] at h_log
-    exact (zpow_le_zpow_iff_right₀ rfl).mpr h_log
-  have: (⌊(|q| * (2 ^ Int.log 2 |q|)⁻¹ - 1) * C.prec⌋.natAbs / (C.prec : ℚ)+ 1) < 2 := by
-    nth_rw 2 [(by norm_num : (2 : ℚ) = 1 + 1)]
-    apply add_lt_add_right
-    rw [div_lt_one (by norm_cast; exact C.prec_pos)]
-    suffices ⌊(|q| * (2 ^ Int.log 2 |q|)⁻¹ - 1) * ↑C.prec⌋.natAbs < (C.prec : ℤ) by
-      norm_cast at this
-      norm_cast
-    rw [Int.natAbs_of_nonneg (Int.floor_nonneg.2 (mul_nonneg
-        (by linarith [mantissa_size_aux q (by linarith)])
-        (by linarith [C.prec_pos])))]
-    rw [Int.floor_lt]
-    norm_cast
-    rw [mul_lt_iff_lt_one_left (by norm_cast; exact C.prec_pos)]
-    linarith [(mantissa_size_aux q (by linarith)).2, C.prec_pos]
-  by_cases lt_e : (2 : ℚ) ^ Int.log 2 |q| < 2 ^ e
-  · apply le_of_lt
-    calc
-      (⌊(|q| * (2 ^ Int.log 2 |q|)⁻¹ - 1) * C.prec⌋.natAbs / C.prec + 1) * (2 : ℚ) ^ Int.log 2 |q| < 2 * 2 ^ Int.log 2 |q| := by
-        exact mul_lt_mul this (by simp) (by positivity) (by norm_num)
-      _ ≤ 2^e := by
-        rw [mul_comm, <-zpow_add_one₀ (by norm_num)]
-        simp only [Nat.one_lt_ofNat, zpow_le_zpow_iff_right₀]
-        simp at lt_e
-        linarith
-      _ ≤ ((m : ℚ) / C.prec + 1) * 2 ^ e := by
-        rw [le_mul_iff_one_le_left (by positivity)]
-        simp only [le_add_iff_nonneg_left]
-        positivity
-  have : Int.log 2 |q| = e := by
-    suffices (2 : ℚ)^ Int.log 2 |q| = 2 ^e by
-      rw [<-zpow_right_inj₀ (a := (2 : ℚ)) (by norm_num) (by norm_num)]
-      exact this
-    linarith
-  rw [this]
-  gcongr
-  rw [coe_q] at h
-  simp at h
-  suffices ⌊(|q| * (2 ^ e)⁻¹ - 1) * C.prec⌋.natAbs ≤ (m : ℤ) by norm_cast at this
-  rw [Int.natAbs_of_nonneg ?_]
-  rotate_left
-  · apply Int.floor_nonneg.2
-    rw [<-this]
-    exact mul_nonneg
-      (by linarith [mantissa_size_aux q (by linarith)])
-      (by linarith [C.prec_pos])
-  suffices ⌊(|q| * (2 ^ e)⁻¹ - 1) * C.prec⌋ ≤ (m : ℚ) by norm_cast at this
-  apply le_trans (b := (q * (2^e)⁻¹ - 1) * C.prec)
-  · rw [abs_of_pos q_pos]
-    apply Int.floor_le
-  rw [<-le_div_iff₀ (by norm_cast; exact C.prec_pos),
-    sub_le_iff_le_add,
-    mul_inv_le_iff₀ (by positivity)]
-  exact h
-
+  rw [<-round_down_coe ⟨false, e, m⟩ vm]
+  apply le_if_round_down_le q (
+    coe_q (⟨false, e, m⟩ : FloatRep C)
+  ) (ne_of_gt q_pos) ?_ h
+  exact ne_of_gt coe_q_false_pos
 
 /-
 lemma round_max_e [R : Rounding] (q : ℚ) (e : ℤ) (h : |q| ≤ (1 + (C.prec - 1 : ℕ) / C.prec) * 2^e) :
