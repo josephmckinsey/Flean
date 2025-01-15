@@ -533,24 +533,22 @@ def Rat.sign (q : ℚ) : Bool := q < 0
 -- and P q1 q2 -> P (-q1) (-q2), then
 -- q1 ≠ 0, q2 ≠ 0 implies P q1 q2
 @[elab_as_elim]
-lemma casesQPlane (P : ℚ → ℚ → Prop) :
-  (∀q1 > 0, ∀q2 > 0, P q1 q2) →
-  (∀q1 < 0, ∀q2 > 0, P q1 q2) →
-  (∀q1 > 0, ∀q2 < 0, P q1 q2) →
-  (∀q1 < 0, ∀q2 < 0, P (-q1) (-q2) → P q2 q1) →
-  (∀q1 ≠ 0, ∀q2 ≠ 0, P q1 q2) := by
-  intro h1 h2 h3 h4
-  intro q1 q1nezero q2 q2nezero
+lemma casesQPlane (P : ℚ → ℚ → Prop)
+  (h1 : ∀q1 > 0, ∀q2 > 0, P q1 q2)
+  (h2 : ∀q1 < 0, ∀q2 > 0, P q1 q2)
+  (h3 : ∀q1 > 0, ∀q2 < 0, P q1 q2)
+  (h4 : ∀q1 < 0, ∀q2 < 0, P (-q1) (-q2) → P q2 q1) (q1 q2 : ℚ)
+  (q1_nezero : q1 ≠ 0) (q2_nezero : q2 ≠ 0) : P q1 q2 := by
   have h : ∀q ≠ (0 : ℚ), q > 0 ∨ q < 0 := by
     intro q qnezero
     by_cases h : q > 0
     · exact Or.inl h
     exact lt_or_gt_of_ne (Ne.symm qnezero)
-  rcases (h q1 q1nezero) with h' | h'
-  · rcases (h q2 q2nezero) with h'' | h''
+  rcases (h q1 q1_nezero) with h' | h'
+  · rcases (h q2 q2_nezero) with h'' | h''
     · exact h1 q1 h' q2 h''
     exact h3 q1 h' q2 h''
-  · rcases (h q2 q2nezero) with h'' | h''
+  · rcases (h q2 q2_nezero) with h'' | h''
     · exact h2 q1 h' q2 h''
     apply h4 q2 h'' q1 h'
     apply h1
@@ -589,22 +587,18 @@ lemma le_if_round_down_le (q1 q2 : ℚ) (q1_nezero : q1 ≠ 0) (q2_nezero : q2 �
   q1 ≤ q2 → coe_q (round_down q1 : FloatRep C) ≤ coe_q (round_down q2 : FloatRep C) := by
   rw [<-floatrep_le_iff_coe_q_le (vm1 := round_down_valid q1 q1_nezero)
     (vm2 := round_down_valid q2 q2_nezero)]
-  apply casesQPlane le_round_down_aux
+  apply casesQPlane le_round_down_aux (q1_nezero := q1_nezero) (q2_nezero := q2_nezero)
   · intro q1 q1h q2 q2h h
     simp only [floatrep_le]
     rw [round_down_of_pos' q1 q1h, round_down_of_pos' q2 q2h]
     rw [floatrep_le_pos_coe_q]
-    · apply le_pos_iff_round_down_le
-      · linarith
-      · linarith
+    · apply le_pos_iff_round_down_le q1 q2 (by linarith) (by linarith)
       rw [abs_of_pos q1h, abs_of_pos q2h]
       exact h
     · exact round_down_valid q1 (by linarith)
     exact round_down_valid q2 (by linarith)
   · intro q1 q1h q2 q2h h
-    simp only [floatrep_le]
-    rw [round_down_of_neg' q1 q1h, round_down_of_pos' q2 q2h]
-    dsimp
+    simp_rw [floatrep_le, round_down_of_neg' q1 q1h, round_down_of_pos' q2 q2h]
   · intro q1 q1h q2 q2h h
     exfalso
     linarith
@@ -612,16 +606,12 @@ lemma le_if_round_down_le (q1 q2 : ℚ) (q1_nezero : q1 ≠ 0) (q2_nezero : q2 �
     have : -q1 ≤ -q2 := by
       linarith
     replace h := h this
-    simp only [floatrep_le]
-    rw [round_down_of_neg' q1 q1h, round_down_of_neg' q2 q2h]
-    rw [round_down_neg q1 (by linarith), round_down_neg q2 (by linarith)] at h
+    rw [floatrep_le, round_down_of_neg' q1 q1h, round_down_of_neg' q2 q2h]
     dsimp
-    simp only [floatrep_le, Flean.neg] at h
-    rw [round_down_of_neg' q1 q1h, round_down_of_neg' q2 q2h] at h
-    simp only [Bool.not_true] at h
+    rw [round_down_neg q1 (by linarith), round_down_neg q2 (by linarith)] at h
+    simp [floatrep_le, Flean.neg,
+      round_down_of_neg' q1 q1h, round_down_of_neg' q2 q2h] at h
     exact h
-  exact q1_nezero
-  exact q2_nezero
 
 --lemma round_down_le_of_le_pos ()
 
