@@ -4,6 +4,7 @@ import Mathlib.Analysis.SpecialFunctions.Log.Base
 import Mathlib.Data.Int.Log
 import Flean.FloatCfg
 import Flean.LogRules
+import Mathlib.Tactic
 
 
 structure FloatRep (α : FloatCfg) where
@@ -269,9 +270,50 @@ lemma round_min_e [R : Rounding] (q : ℚ) :
   rw [round_up]
   split <;> simp
 
-lemma floatrep_e_le_aux (e1 e2 : ℤ) (m1 m2 : ℕ) (vm2 : m2 < C.prec)
-  (h : coe_q (⟨false, e1, m1⟩ : FloatRep C) ≤ coe_q (⟨false, e2, m2⟩ : FloatRep C)) :
-  e1 ≤ e2 := by
+lemma neg_valid_m {f : FloatRep C} :
+  (Flean.neg f).valid_m ↔ (f.valid_m) := by
+  simp [FloatRep.valid_m, Flean.neg]
+
+lemma neg_valid_e {f : FloatRep C} :
+  (Flean.neg f).valid_e ↔ (f.valid_e) := by
+  simp [FloatRep.valid_e, Flean.neg]
+
+lemma floatrep_of_false₁ (P : FloatRep C → Prop)
+  (h1 : ∀ f, P (Flean.neg f) → P f)
+  (h2 : ∀ e m, P ⟨false, e, m⟩) (f : FloatRep C) :
+  P f := by
+  rcases f with ⟨s, e, m⟩
+  cases s
+  · exact h2 e m
+  apply h1
+  rw [<-neg_true]
+  exact h2 e m
+
+
+lemma floatrep_of_false₂ (P : FloatRep C → FloatRep C → Prop)
+  (h1 : ∀ f1 f2, P (Flean.neg f1) f2 → P f1 f2)
+  (h2 : ∀ f1 f2, P f1 (Flean.neg f2) → P f1 f2)
+  (h3 : ∀ e e' m m', P ⟨false, e, m⟩ ⟨false, e', m'⟩) (f1 f2 : FloatRep C) :
+  P f1 f2 := by
+  apply floatrep_of_false₁ (f := f2)
+  · apply h2
+  apply floatrep_of_false₁ (f := f1)
+  · intro f h e m
+    apply h1
+    apply h
+  intro e m e' m'
+  apply h3
+
+lemma floatrep_e_le_of_coe_q (f1 f2 : FloatRep C) (vm2 : f2.valid_m) (h : |coe_q f1| ≤ |coe_q f2|) :
+  f1.e ≤ f2.e := by
+  revert h vm2
+  apply floatrep_of_false₂ (f1 := f1) (f2 := f2)
+  · simp_rw [coe_q_of_neg]; simp [Flean.neg]
+  · intro f1 f2 h
+    rw [neg_valid_m, coe_q_of_neg, abs_neg, Flean.neg] at h
+    exact h
+  intro e1 e2 m1 m2 vm2 h
+  rw [abs_of_pos coe_q_false_pos, abs_of_pos coe_q_false_pos] at h
   simp only [coe_q, Bool.false_eq_true, ↓reduceIte, one_mul] at h
   contrapose! h
   calc
@@ -285,45 +327,6 @@ lemma floatrep_e_le_aux (e1 e2 : ℤ) (m1 m2 : ℕ) (vm2 : m2 < C.prec)
       nth_rw 1 [<-one_mul (2^e1)]
       gcongr
       exact mantissa_ge_one
-
-lemma neg_valid_m {f : FloatRep C} (vm : f.valid_m) :
-  (Flean.neg f).valid_m := by simpa [FloatRep.valid_m, Flean.neg] using vm
-
-
-lemma floatrep_e_le_of_coe_q (f1 f2 : FloatRep C) (vm2 : f2.valid_m) (h : |coe_q f1| ≤ |coe_q f2|) :
-  f1.e ≤ f2.e := by
-  wlog h' : (f1.s = false) ∧ f2.s = false
-  · have : (f1.s = true ∧ f2.s = false) ∨
-      (f1.s = false ∧ f2.s = true) ∨
-      (f1.s = true ∧ f2.s = true) := by
-        rw [not_and_or] at h'
-        rcases h' with h' | h'
-        <;> simp at h'
-        <;> rw [h']
-        <;> simp
-    rcases this with h' | h' | h'
-    · have := this (Flean.neg f1) f2 (neg_valid_m vm2)
-      rw [coe_q_of_neg, abs_neg] at this
-      have := this h
-      apply this
-      simp only [Flean.neg, h', Bool.not_true, and_self]
-    · have := this f1 (Flean.neg f2) (neg_valid_m vm2)
-      rw [coe_q_of_neg, abs_neg] at this
-      have := this h
-      apply this
-      simp only [Flean.neg, h', Bool.not_true, and_self]
-    have := this (Flean.neg f1) (Flean.neg f2) (neg_valid_m vm2)
-    rw [coe_q_of_neg, coe_q_of_neg, abs_neg, abs_neg] at this
-    have := this h
-    apply this
-    simp [h', Flean.neg]
-  rcases f1 with ⟨s, e, m⟩
-  rcases f2 with ⟨s', e', m'⟩
-  dsimp at h'
-  rw [h'.1, h'.2] at h
-  rw [h'.1, h'.2]
-  rw [abs_of_pos coe_q_false_pos, abs_of_pos coe_q_false_pos] at h
-  exact floatrep_e_le_aux e e' m m' vm2 h
 
 lemma max_mantissa_q (C : FloatCfg) : (1 ≤ 2 - (1 : ℚ) / C.prec) ∧ (2 - (1 : ℚ) / C.prec < 2) := by
   have := C.prec_pos
@@ -341,14 +344,15 @@ lemma max_mantissa_q (C : FloatCfg) : (1 ≤ 2 - (1 : ℚ) / C.prec) ∧ (2 - (1
 
 lemma normal_range (f : FloatRep C) (ve : f.valid_e) (vm : f.valid_m) :
   C.emin ≤ Int.log 2 |coe_q f| ∧ Int.log 2 |coe_q f| ≤ C.emax := by
+  revert ve vm
+  apply floatrep_of_false₁ (f := f)
+  · simp [neg_valid_m, neg_valid_e, coe_q_of_neg, abs_neg]
+  intro e m ve vm
   rw [coe_q]
-  rcases f with ⟨s, e, m⟩
-  cases s <;> {
-    constructor
-    <;> simp only [Bool.false_eq_true, ↓reduceIte, one_mul, neg_one_mul, neg_mul, abs_neg, q_exp_eq_exp vm]
-    · exact ve.1
-    exact ve.2
-  }
+  constructor
+  <;> simp only [Bool.false_eq_true, ↓reduceIte, one_mul, neg_one_mul, neg_mul, abs_neg, q_exp_eq_exp vm]
+  · exact ve.1
+  exact ve.2
 
 lemma normal_range' (m : ℕ) (e : ℤ) (vm : m < C.prec) (ve2 : e ≤ C.emax) :
   |((m : ℚ) / ↑C.prec + 1) * 2 ^ e| ≤ (2 - 1 / ↑C.prec) * 2 ^ C.emax := by
@@ -433,31 +437,29 @@ lemma floatrep_pos_equiv (f1 f2 : FloatRep C) :
   · right; tauto
   left; exact lt_of_le_of_ne h.1 h'
 
+lemma floatrep_le_pos_neg₁ (f1 f2 : FloatRep C) :
+  floatrep_le_pos (Flean.neg f1) f2 ↔ floatrep_le_pos f1 f2 := by
+  simp [Flean.neg, floatrep_le_pos]
+
+lemma floatrep_le_pos_neg₂ (f1 f2 : FloatRep C) :
+  floatrep_le_pos f1 (Flean.neg f2) ↔ floatrep_le_pos f1 f2 := by
+  simp [Flean.neg, floatrep_le_pos]
+
 lemma floatrep_le_pos_coe_q (f1 f2 : FloatRep C) (vm1 : f1.valid_m) (vm2 : f2.valid_m) :
   (floatrep_le_pos f1 f2) ↔ |coe_q f1| ≤ |coe_q f2| := by
+  revert vm1 vm2
+  apply floatrep_of_false₂ (f1 := f1) (f2 := f2)
+  · simp [floatrep_le_pos_neg₁, neg_valid_m, coe_q_of_neg]
+  · simp [floatrep_le_pos_neg₂, neg_valid_m, coe_q_of_neg]
+  intro e e' m m' vm1 vm2
   constructor
-  · rcases f1 with ⟨s, e, m⟩
-    wlog h : s = false
-    · simp at h
-      have := this (C := C) f2 vm2 false e m  vm1 rfl
-      nth_rw 2 [neg_true] at this
-      rw [coe_q_of_neg, abs_neg, <-h] at this
-      exact this
-    rw [h]
-    rcases f2 with ⟨s', e', m'⟩
-    wlog h : s' = false
-    · simp at h
-      have := @this C C false e m rfl false e' m' ?_ (vm1 := vm1) (vm2 := vm2)
-      nth_rw 4 [neg_true] at this
-      rw [coe_q_of_neg, abs_neg, <-h] at this
-      exact this
-      rfl
-    rw [h]
+  · intro h
     rw [abs_of_pos coe_q_false_pos, abs_of_pos coe_q_false_pos]
-    rintro (h | h')
-    · simp [coe_q]
-      dsimp at h
-      apply le_of_lt
+    rw [coe_q, coe_q]
+    simp only [Bool.false_eq_true, ↓reduceIte, one_mul]
+    simp_rw [floatrep_le_pos] at h
+    rcases h with h | h'
+    · apply le_of_lt
       calc
         (↑m / ↑C.prec + 1) * (2 : ℚ) ^ e < 2 * 2^e := by
           gcongr
@@ -468,40 +470,22 @@ lemma floatrep_le_pos_coe_q (f1 f2 : FloatRep C) (vm1 : f1.valid_m) (vm2 : f2.va
         _ ≤ ((m' : ℚ) / C.prec + 1) * 2^e' := by
           rw [le_mul_iff_one_le_left (by positivity)]
           exact mantissa_ge_one
-    dsimp at h'
-    simp only [coe_q, Bool.false_eq_true, ↓reduceIte, one_mul, h']
     gcongr
     exact h'.2
+    norm_num
+    rw [h'.1]
   rw [floatrep_pos_equiv]
   intro h
-  refine ⟨floatrep_e_le_of_coe_q f1 f2 vm2 h, ?_⟩
-  rcases f1 with ⟨s, e, m⟩
-  rcases f2 with ⟨s', e', m'⟩
+  refine ⟨floatrep_e_le_of_coe_q _ _ vm2 h, ?_⟩
   simp only [FloatRep.valid_m, coe_q] at *
-  wlog h' : s = false
-  · apply this (C := C) (s := false) e m (vm1 := vm1) s' e' m' (vm2 := vm2) ?_ rfl
-    simp only [Bool.false_eq_true, ↓reduceIte, one_mul, ite_mul, neg_mul, neg_add_rev]
-    simp at h'
-    rw [h'] at h
-    simp only [↓reduceIte, neg_mul, one_mul, neg_add_rev, ite_mul] at h
-    rw [<-neg_add, neg_mul, abs_neg, add_comm] at h
-    exact h
   intro e_eq
-  rw [h'] at h
+  rw [e_eq] at h
   simp only [Bool.false_eq_true, ↓reduceIte, one_mul, neg_mul, neg_add_rev] at h
-  wlog h'' : s' = false
-  · apply this (C := C) _ e m (vm1 := vm1) (vm2 := vm2) false e' m' h' e_eq ?_ rfl
-    simp [h''] at *
-    rw [<-neg_add, neg_mul, abs_neg, add_comm 1 _] at h
-    exact h
-  rw [h''] at h
-  simp only [Bool.false_eq_true, ↓reduceIte, one_mul] at h
   have := C.prec_pos
   rw [abs_of_pos (by positivity), abs_of_pos (by positivity)] at h
-  rw [e_eq] at h
   suffices (m : ℚ) / C.prec ≤ (m' : ℚ) / C.prec by
     rw [div_le_div_iff_of_pos_right (by norm_cast)] at this
-    norm_cast at this
+    exact_mod_cast this
   rw [mul_le_mul_iff_of_pos_right (by positivity)] at h
   linarith
 
@@ -515,6 +499,7 @@ def floatrep_le (f1 f2 : FloatRep C) : Prop :=
 
 lemma floatrep_le_iff_coe_q_le (f1 f2 : FloatRep C) (vm1 : f1.valid_m) (vm2 : f2.valid_m) :
   floatrep_le f1 f2 ↔ coe_q f1 ≤ coe_q f2 := by
+  -- We could extract the logic here, but we'll only do that for q
   rcases f1 with ⟨s, e, m⟩
   rcases f2 with ⟨s', e', m'⟩
   rcases s <;> rcases s'
@@ -577,10 +562,8 @@ def le_round_down_aux (q1 q2 : ℚ) :=
 lemma le_pos_iff_round_down_le (q1 q2 : ℚ) (q1_nezero : q1 ≠ 0) (q2_nezero : q2 ≠ 0) :
   |q1| ≤ |q2| → |coe_q (round_down q1 : FloatRep C)| ≤ |coe_q (round_down q2 : FloatRep C)| := by
   intro h
-  rw [<-floatrep_le_pos_coe_q]
-  rotate_left
-  · exact round_down_valid q1 q1_nezero
-  · exact round_down_valid q2 q2_nezero
+  rw [<-floatrep_le_pos_coe_q
+    (vm1 := round_down_valid q1 q1_nezero) (vm2 := round_down_valid q2 q2_nezero)]
   rw [floatrep_pos_equiv]
   unfold floatrep_le_pos'
   constructor
