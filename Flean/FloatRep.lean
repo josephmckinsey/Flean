@@ -78,6 +78,9 @@ lemma neg_invertible : Function.Bijective (@Flean.neg C) := by
   refine ⟨Flean.neg, Function.leftInverse_iff_comp.2 ?_, Function.rightInverse_iff_comp.2 ?_⟩
   <;> exact Flean.neg_neg
 
+lemma neg_valid_m {f : FloatRep C} :
+  (Flean.neg f).valid_m ↔ (f.valid_m) := by
+  simp [FloatRep.valid_m, Flean.neg]
 
 lemma coe_q_of_neg (f : FloatRep C) :
   coe_q (Flean.neg f) = -coe_q f:= by
@@ -101,13 +104,42 @@ lemma coe_q_true_neg {e : ℤ} {m : ℕ} :
   rw [neg_false, coe_q_of_neg]
   simp only [Left.neg_neg_iff, gt_iff_lt, coe_q_false_pos]
 
+lemma coe_q_nezero {f : FloatRep C} :
+  coe_q f ≠ 0 := by
+  rcases f with ⟨s, e, m⟩
+  cases s
+  · linarith [coe_q_false_pos (C := C) (e := e) (m := m)]
+  linarith [coe_q_true_neg (C := C) (e := e) (m := m)]
+
+lemma floatrep_of_false₁ (P : FloatRep C → Prop)
+  (h1 : ∀ f, P (Flean.neg f) → P f)
+  (h2 : ∀ e m, P ⟨false, e, m⟩) (f : FloatRep C) :
+  P f := by
+  rcases f with ⟨s, e, m⟩
+  cases s
+  · exact h2 e m
+  apply h1
+  rw [<-neg_true]
+  exact h2 e m
+
+lemma floatrep_of_false₂ (P : FloatRep C → FloatRep C → Prop)
+  (h1 : ∀ f1 f2, P (Flean.neg f1) f2 → P f1 f2)
+  (h2 : ∀ f1 f2, P f1 (Flean.neg f2) → P f1 f2)
+  (h3 : ∀ e e' m m', P ⟨false, e, m⟩ ⟨false, e', m'⟩) (f1 f2 : FloatRep C) :
+  P f1 f2 := by
+  apply floatrep_of_false₁ (f := f2)
+  · apply h2
+  apply floatrep_of_false₁ (f := f1)
+  · intro f h e m
+    apply h1
+    apply h
+  intro e m e' m'
+  apply h3
+
 lemma coe_q_of_Cprec (b : Bool) (e : ℤ) :
   coe_q (⟨b, e, C.prec⟩ : FloatRep C) = (if b then -1 else 1) * 2^(e + 1) := by
   wlog h : b = false
-  · simp only [ite_mul, neg_mul, one_mul, Bool.forall_bool, Bool.false_eq_true, ↓reduceIte,
-    forall_const, Bool.true_eq_false, IsEmpty.forall_iff, implies_true, and_true] at this
-    simp only [h, ↓reduceIte, neg_mul, one_mul]
-    rw [neg_false, coe_q_of_neg, this]
+  · simp [h, neg_false, coe_q_of_neg, this]
   simp only [h, coe_q, Bool.false_eq_true, ↓reduceIte, one_mul]
   rw [div_self]
   · simp [zpow_add_one₀]
@@ -139,14 +171,12 @@ lemma round_up_neg (q : ℚ) (h : q ≠ 0) :
 
 lemma round_down_coe (f : FloatRep C) (h : f.valid_m) :
   round_down (coe_q f) = f := by
-  rcases f with ⟨s, e, m⟩
-  suffices round_down (coe_q ⟨false, e, m⟩) = ⟨false, e, m⟩ by
-    cases s
-    · exact this
-    rw [neg_false, coe_q_of_neg, round_down_neg,
-      neg_invertible.injective.eq_iff]
-    · exact this
-    symm; apply ne_of_lt coe_q_false_pos
+  revert h
+  apply floatrep_of_false₁ (f := f)
+  · intro f
+    rw [coe_q_of_neg, neg_valid_m, round_down_neg (coe_q f) coe_q_nezero, neg_invertible.injective.eq_iff]
+    tauto
+  intro e m h
   simp only [round_down, coe_q, Bool.false_eq_true, ↓reduceIte, one_mul,
     zpow_neg, FloatRep.mk.injEq, decide_eq_false_iff_not, not_lt]
   refine ⟨?_, ?_, ?_⟩
@@ -190,14 +220,12 @@ lemma round_up_valid (q : ℚ) (h' : q ≠ 0):
 
 lemma round_up_coe (f : FloatRep C) (h : f.valid_m) :
   round_up (coe_q f) = f := by
-  rcases f with ⟨s, e, m⟩
-  suffices round_up (coe_q ⟨false, e, m⟩) = ⟨false, e, m⟩ by
-    cases s
-    · exact this
-    rw [neg_false, coe_q_of_neg, round_up_neg,
-      neg_invertible.injective.eq_iff]
-    · exact this
-    symm; apply ne_of_lt coe_q_false_pos
+  revert h
+  apply floatrep_of_false₁ (f := f)
+  · intro f
+    rw [coe_q_of_neg, neg_valid_m, round_up_neg (coe_q f) coe_q_nezero, neg_invertible.injective.eq_iff]
+    tauto
+  intro e m h
   simp only [coe_q, Bool.false_eq_true, ↓reduceIte, one_mul]
   refine coe_q_inj_valid ?_ h ?_
   · refine round_up_valid _ ?_
@@ -270,39 +298,12 @@ lemma round_min_e [R : Rounding] (q : ℚ) :
   rw [round_up]
   split <;> simp
 
-lemma neg_valid_m {f : FloatRep C} :
-  (Flean.neg f).valid_m ↔ (f.valid_m) := by
-  simp [FloatRep.valid_m, Flean.neg]
 
 lemma neg_valid_e {f : FloatRep C} :
   (Flean.neg f).valid_e ↔ (f.valid_e) := by
   simp [FloatRep.valid_e, Flean.neg]
 
-lemma floatrep_of_false₁ (P : FloatRep C → Prop)
-  (h1 : ∀ f, P (Flean.neg f) → P f)
-  (h2 : ∀ e m, P ⟨false, e, m⟩) (f : FloatRep C) :
-  P f := by
-  rcases f with ⟨s, e, m⟩
-  cases s
-  · exact h2 e m
-  apply h1
-  rw [<-neg_true]
-  exact h2 e m
 
-
-lemma floatrep_of_false₂ (P : FloatRep C → FloatRep C → Prop)
-  (h1 : ∀ f1 f2, P (Flean.neg f1) f2 → P f1 f2)
-  (h2 : ∀ f1 f2, P f1 (Flean.neg f2) → P f1 f2)
-  (h3 : ∀ e e' m m', P ⟨false, e, m⟩ ⟨false, e', m'⟩) (f1 f2 : FloatRep C) :
-  P f1 f2 := by
-  apply floatrep_of_false₁ (f := f2)
-  · apply h2
-  apply floatrep_of_false₁ (f := f1)
-  · intro f h e m
-    apply h1
-    apply h
-  intro e m e' m'
-  apply h3
 
 lemma floatrep_e_le_of_coe_q (f1 f2 : FloatRep C) (vm2 : f2.valid_m) (h : |coe_q f1| ≤ |coe_q f2|) :
   f1.e ≤ f2.e := by
