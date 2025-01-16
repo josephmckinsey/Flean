@@ -80,7 +80,6 @@ lemma round_down_of_neg' (q : ℚ) (h : q < 0) :
   (round_down q : FloatRep C).s = true := by
   simpa [round_down]
 
-@[elab_as_elim]
 lemma casesQPlane (P : ℚ → ℚ → Prop)
   (h1 : ∀q1 > 0, ∀q2 > 0, P q1 q2)
   (h2 : ∀q1 < 0, ∀q2 > 0, P q1 q2)
@@ -103,10 +102,7 @@ lemma casesQPlane (P : ℚ → ℚ → Prop)
     · exact Left.neg_pos_iff.mpr h''
     exact Left.neg_pos_iff.mpr h'
 
-def le_round_down_aux (q1 q2 : ℚ) :=
-  q1 ≤ q2 → floatrep_le (round_down q1 : FloatRep C) (round_down q2 : FloatRep C)
-
-lemma le_pos_iff_round_down_le (q1 q2 : ℚ) (q1_nezero : q1 ≠ 0) (q2_nezero : q2 ≠ 0) :
+lemma abs_le_round_down_of_le (q1 q2 : ℚ) (q1_nezero : q1 ≠ 0) (q2_nezero : q2 ≠ 0) :
   |q1| ≤ |q2| → |coe_q (round_down q1 : FloatRep C)| ≤ |coe_q (round_down q2 : FloatRep C)| := by
   intro h
   rw [<-floatrep_le_pos_coe_q
@@ -131,16 +127,16 @@ lemma le_pos_iff_round_down_le (q1 q2 : ℚ) (q1_nezero : q1 ≠ 0) (q2_nezero :
   · norm_num
   exact Int.le_of_eq (h.symm)
 
-lemma le_if_round_down_le (q1 q2 : ℚ) (q1_nezero : q1 ≠ 0) (q2_nezero : q2 ≠ 0) :
+lemma le_round_down_of_le (q1 q2 : ℚ) (q1_nezero : q1 ≠ 0) (q2_nezero : q2 ≠ 0) :
   q1 ≤ q2 → coe_q (round_down q1 : FloatRep C) ≤ coe_q (round_down q2 : FloatRep C) := by
   rw [<-floatrep_le_iff_coe_q_le (vm1 := round_down_valid q1 q1_nezero)
     (vm2 := round_down_valid q2 q2_nezero)]
-  apply casesQPlane le_round_down_aux (q1_nezero := q1_nezero) (q2_nezero := q2_nezero)
+  apply casesQPlane (q1_nezero := q1_nezero) (q2_nezero := q2_nezero)
   · intro q1 q1h q2 q2h h
     simp only [floatrep_le]
     rw [round_down_of_pos' q1 q1h, round_down_of_pos' q2 q2h]
     rw [floatrep_le_pos_coe_q]
-    · apply le_pos_iff_round_down_le q1 q2 (by linarith) (by linarith)
+    · apply abs_le_round_down_of_le q1 q2 (by linarith) (by linarith)
       rw [abs_of_pos q1h, abs_of_pos q2h]
       exact h
     · exact round_down_valid q1 (by linarith)
@@ -165,10 +161,8 @@ lemma round_down_false_of_le_coe_aux (q : ℚ) (e : ℤ) (m : ℕ) (vm : m < C.p
   (h : q ≤ coe_q (⟨false, e, m⟩ : FloatRep C)) :
   coe_q (round_down q : FloatRep C) ≤ coe_q (⟨false, e, m⟩ : FloatRep C) := by
   rw [<-round_down_coe ⟨false, e, m⟩ vm]
-  apply le_if_round_down_le q (
-    coe_q (⟨false, e, m⟩ : FloatRep C)
-  ) (ne_of_gt q_pos) ?_ h
-  exact ne_of_gt coe_q_false_pos
+  apply le_round_down_of_le q _ (ne_of_gt q_pos) coe_q_nezero h
+
 
 def round_up (q : ℚ) : FloatRep C :=
   let exp := Int.log 2 |q|
@@ -178,11 +172,10 @@ def round_up (q : ℚ) : FloatRep C :=
   else
     ⟨q < 0, exp, mantissa⟩
 
-
 lemma round_up_def (q : ℚ) :
   let exp := Int.log 2 |q|
   let mantissa := ⌈(|q| * 2^(-exp) - 1) * C.prec⌉.natAbs
-  coe_q (round_up q : FloatRep C) = coe_q (⟨(q < 0), exp, mantissa⟩ : FloatRep C):= by
+  coe_q (round_up q : FloatRep C) = coe_q (⟨(q < 0), exp, mantissa⟩ : FloatRep C) := by
   set exp := Int.log 2 |q| with exp_def
   set mantissa := ⌈(|q| * 2^(-exp) - 1) * C.prec⌉.natAbs with mantissa_def
   dsimp
@@ -236,6 +229,143 @@ lemma round_up_coe (f : FloatRep C) (h : f.valid_m) :
   rw [add_sub_cancel_right, div_mul_cancel₀, Int.ceil_natCast, Int.natAbs_ofNat]
   norm_cast
   exact ne_of_gt C.prec_pos
+
+lemma round_up_of_pos (q : ℚ) (h : 0 < q) :
+  0 < coe_q (round_up q : FloatRep C) := by
+  rw [round_up_def, coe_q]
+  split
+  · simp at *; linarith
+  positivity
+
+lemma round_up_of_pos' (q : ℚ) (h : 0 < q) :
+  (round_up q : FloatRep C).s = false := by
+  simp only [round_up]
+  split <;> (simp; linarith)
+
+
+lemma round_up_of_neg (q : ℚ) (h : q < 0) :
+  coe_q (round_up q : FloatRep C) < 0 := by
+  suffices 0 < -coe_q (round_up q : FloatRep C) by
+    exact Left.neg_pos_iff.mp this
+  rw [<-coe_q_of_neg, <-round_up_neg q (by linarith)]
+  apply round_up_of_pos
+  exact Left.neg_pos_iff.mpr h
+
+lemma round_up_of_neg' (q : ℚ) (h : q < 0) :
+  (round_up q : FloatRep C).s = true := by
+  simp [round_up]
+  split <;> simpa
+
+lemma e_le_iff_log (f1 f2 : FloatRep C) (vm1 : f1.valid_m) (vm2 : f2.valid_m) :
+  f1.e ≤ f2.e ↔ Int.log 2 |coe_q f1| ≤ Int.log 2 |coe_q f2| := by
+  revert vm1 vm2
+  apply floatrep_of_false₂ (f1 := f1) (f2 := f2)
+  · simp_rw [coe_q_of_neg, neg_valid_m]
+    simp [Flean.neg]
+  · simp_rw [coe_q_of_neg, neg_valid_m]
+    simp [Flean.neg]
+  intro e1 e2 m1 m2 vm1 vm2
+  simp only [coe_q, Bool.false_eq_true, ↓reduceIte, one_mul]
+  rw [q_exp_eq_exp vm1, q_exp_eq_exp vm2]
+
+lemma mantissa_nonneg (C : FloatCfg) (q : ℚ) (q_nezero : q ≠ 0) :
+  0 ≤ (|q| * ((2 : ℚ)^Int.log 2 |q|)⁻¹ - 1) * C.prec := by
+  apply mul_nonneg
+  · linarith [(mantissa_size_aux q q_nezero).1]
+  exact_mod_cast le_of_lt C.prec_pos
+
+
+lemma abs_le_round_up_of_le (q1 q2 : ℚ) (q1_nezero : q1 ≠ 0) (q2_nezero : q2 ≠ 0) :
+  |q1| ≤ |q2| → |coe_q (round_up q1 : FloatRep C)| ≤ |coe_q (round_up q2 : FloatRep C)| := by
+  intro q_le_than
+  rw [<-floatrep_le_pos_coe_q
+    (vm1 := round_up_valid q1 q1_nezero) (vm2 := round_up_valid q2 q2_nezero)]
+  rw [floatrep_pos_equiv]
+  unfold floatrep_le_pos'
+  constructor
+  · unfold round_up
+    if h : Int.log 2 |q1| = Int.log 2 |q2| then
+      simp only [zpow_neg]
+      split_ifs with h' h'' h'''
+      · rw [h]
+      · exfalso
+        apply h''
+        apply le_antisymm
+        · apply small_ceil
+          · linarith [(mantissa_size_aux q2 q2_nezero).2]
+          · linarith [(mantissa_size_aux q2 q2_nezero).1]
+          exact le_of_lt C.prec_pos
+        nth_rw 1 [<-h']
+        zify
+        rw [abs_of_nonneg (Int.ceil_nonneg (mantissa_nonneg C q1 q1_nezero))]
+        rw [abs_of_nonneg (Int.ceil_nonneg (mantissa_nonneg C q2 q2_nezero))]
+        rw [h]
+        gcongr
+      · simp [h]
+      · simp [h]
+    else
+      have : Int.log 2 |q1| ≤ Int.log 2 |q2| := by
+        apply Int.log_mono_right
+        · exact abs_pos.mpr q1_nezero
+        exact q_le_than
+      have : Int.log 2 |q1| + 1 ≤ Int.log 2 |q2| := by
+        apply Int.add_one_le_iff.mpr
+        apply lt_of_le_of_ne this h
+      dsimp
+      split_ifs with h' h'' h'''
+      · simp [*]
+      · simp [*]
+      · simp; linarith
+      · simp; linarith
+  · intro h
+    simp [round_up]
+    split_ifs with h' h'' h'''
+    · simp
+    · simp
+    · simp [round_up, *] at h
+      have : Int.log 2 |q1| ≤ Int.log 2 |q2| := by
+        apply Int.log_mono_right
+        · exact abs_pos.mpr q1_nezero
+        exact q_le_than
+      linarith
+    · simp [round_up, *] at h
+      simp
+      zify
+      rw [abs_of_nonneg (Int.ceil_nonneg (mantissa_nonneg C q1 q1_nezero))]
+      rw [abs_of_nonneg (Int.ceil_nonneg (mantissa_nonneg C q2 q2_nezero))]
+      rw [h]
+      gcongr
+
+lemma le_round_up_of_le (q1 q2 : ℚ) (q1_nezero : q1 ≠ 0) (q2_nezero : q2 ≠ 0) :
+  q1 ≤ q2 → coe_q (round_up q1 : FloatRep C) ≤ coe_q (round_up q2 : FloatRep C) := by
+  rw [<-floatrep_le_iff_coe_q_le (vm1 := round_up_valid q1 q1_nezero)
+    (vm2 := round_up_valid q2 q2_nezero)]
+  apply casesQPlane (q1_nezero := q1_nezero) (q2_nezero := q2_nezero)
+  · intro q1 q1h q2 q2h h
+    simp only [floatrep_le]
+    rw [round_up_of_pos' q1 q1h, round_up_of_pos' q2 q2h]
+    rw [floatrep_le_pos_coe_q]
+    · apply abs_le_round_up_of_le q1 q2 (by linarith) (by linarith)
+      rw [abs_of_pos q1h, abs_of_pos q2h]
+      exact h
+    · exact round_up_valid q1 (by linarith)
+    exact round_up_valid q2 (by linarith)
+  · intro q1 q1h q2 q2h h
+    simp_rw [floatrep_le, round_up_of_neg' q1 q1h, round_up_of_pos' q2 q2h]
+  · intro q1 q1h q2 q2h h
+    exfalso
+    linarith
+  · intro q1 q1h q2 q2h h h'
+    have : -q1 ≤ -q2 := by
+      linarith
+    replace h := h this
+    rw [floatrep_le, round_up_of_neg' q1 q1h, round_up_of_neg' q2 q2h]
+    dsimp
+    rw [round_up_neg q1 (by linarith), round_up_neg q2 (by linarith)] at h
+    simp [floatrep_le, Flean.neg,
+      round_up_of_neg' q1 q1h, round_up_of_neg' q2 q2h] at h
+    exact h
+
 
 -- gross casework
 def round_nearest (q : ℚ) : FloatRep C :=
