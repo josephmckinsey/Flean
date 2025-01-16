@@ -1,6 +1,7 @@
 import Flean.FloatCfg
 import Flean.Subnorm
 import Flean.FloatRep
+import Flean.Rounding
 
 variable {C : FloatCfg}
 
