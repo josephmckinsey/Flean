@@ -234,37 +234,51 @@ lemma floatrep_le_pos_neg₂ (f1 f2 : FloatRep C) :
   floatrep_le_pos f1 (Flean.neg f2) ↔ floatrep_le_pos f1 f2 := by
   simp [Flean.neg, floatrep_le_pos]
 
-lemma floatrep_le_pos_coe_q (f1 f2 : FloatRep C) (vm1 : f1.valid_m) (vm2 : f2.valid_m) :
-  (floatrep_le_pos f1 f2) ↔ |coe_q f1| ≤ |coe_q f2| := by
-  revert vm1 vm2
+lemma floatrep_le_pos_coe_q (f1 f2 : FloatRep C) (vm1 : f1.m ≤ C.prec) :
+  (floatrep_le_pos f1 f2) → |coe_q f1| ≤ |coe_q f2| := by
+  revert vm1
+  have almost_valid_neg {C : FloatCfg} (f : FloatRep C) : (Flean.neg f).m ≤ C.prec ↔ f.m ≤ C.prec := by
+    simp [Flean.neg]
   apply floatrep_of_false₂ (f1 := f1) (f2 := f2)
-  · simp [floatrep_le_pos_neg₁, neg_valid_m, coe_q_of_neg]
+  · simp [floatrep_le_pos_neg₁, almost_valid_neg, coe_q_of_neg]
+  · simp [floatrep_le_pos_neg₂, coe_q_of_neg]
+  intro e e' m m' vm1 h
+  rw [abs_of_pos coe_q_false_pos, abs_of_pos coe_q_false_pos]
+  rw [coe_q, coe_q]
+  simp only [Bool.false_eq_true, ↓reduceIte, one_mul]
+  simp_rw [floatrep_le_pos] at h
+  rcases h with h | h'
+  · calc
+      (↑m / ↑C.prec + 1) * (2 : ℚ) ^ e ≤ 2 * 2^e := by
+        gcongr
+        if h : m = C.prec then
+          rw [h]
+          have := C.prec_pos
+          field_simp
+          linarith
+        else
+          have : m < C.prec := by simp at vm1; apply lt_of_le_of_ne vm1 h
+          apply le_of_lt
+          exact mantissa_lt_two this
+      _ ≤ 2^e' := by
+        rw [mul_comm, <-zpow_add_one₀ (by norm_num), zpow_le_zpow_iff_right₀ (by norm_num)]
+        exact h
+      _ ≤ ((m' : ℚ) / C.prec + 1) * 2^e' := by
+        rw [le_mul_iff_one_le_left (by positivity)]
+        exact mantissa_ge_one
+  gcongr
+  exact h'.2
+  norm_num
+  rw [h'.1]
+
+lemma coe_q_le_floatrep_pos (f1 f2 : FloatRep C) (vm2 : f2.valid_m) :
+  |coe_q f1| ≤ |coe_q f2| → floatrep_le_pos f1 f2 := by
+  revert vm2
+  apply floatrep_of_false₂ (f1 := f1) (f2 := f2)
+  · simp [floatrep_le_pos_neg₁, coe_q_of_neg]
   · simp [floatrep_le_pos_neg₂, neg_valid_m, coe_q_of_neg]
-  intro e e' m m' vm1 vm2
-  constructor
-  · intro h
-    rw [abs_of_pos coe_q_false_pos, abs_of_pos coe_q_false_pos]
-    rw [coe_q, coe_q]
-    simp only [Bool.false_eq_true, ↓reduceIte, one_mul]
-    simp_rw [floatrep_le_pos] at h
-    rcases h with h | h'
-    · apply le_of_lt
-      calc
-        (↑m / ↑C.prec + 1) * (2 : ℚ) ^ e < 2 * 2^e := by
-          gcongr
-          exact mantissa_lt_two vm1
-        _ ≤ 2^e' := by
-          rw [mul_comm, <-zpow_add_one₀ (by norm_num), zpow_le_zpow_iff_right₀ (by norm_num)]
-          exact h
-        _ ≤ ((m' : ℚ) / C.prec + 1) * 2^e' := by
-          rw [le_mul_iff_one_le_left (by positivity)]
-          exact mantissa_ge_one
-    gcongr
-    exact h'.2
-    norm_num
-    rw [h'.1]
+  intro e e' m m' vm2 h
   rw [floatrep_pos_equiv]
-  intro h
   refine ⟨floatrep_e_le_of_coe_q _ _ vm2 h, ?_⟩
   simp only [FloatRep.valid_m, coe_q] at *
   intro e_eq
@@ -277,6 +291,11 @@ lemma floatrep_le_pos_coe_q (f1 f2 : FloatRep C) (vm1 : f1.valid_m) (vm2 : f2.va
     exact_mod_cast this
   rw [mul_le_mul_iff_of_pos_right (by positivity)] at h
   linarith
+
+lemma floatrep_le_pos_iff_coe_q (f1 f2 : FloatRep C) (vm1 : f1.m ≤ C.prec) (vm2 : f2.valid_m) :
+  floatrep_le_pos f1 f2 ↔ |coe_q f1| ≤ |coe_q f2| := by
+  refine ⟨floatrep_le_pos_coe_q f1 f2 vm1, coe_q_le_floatrep_pos f1 f2 vm2⟩
+
 
 def floatrep_le (f1 f2 : FloatRep C) : Prop :=
   match (f1.s, f2.s) with
@@ -293,7 +312,7 @@ lemma floatrep_le_iff_coe_q_le (f1 f2 : FloatRep C) (vm1 : f1.valid_m) (vm2 : f2
   rcases s <;> rcases s'
   · rw [<-abs_of_pos (coe_q_false_pos (e := e) (m := m))]
     rw [<-abs_of_pos (coe_q_false_pos (e := e') (m := m'))]
-    apply floatrep_le_pos_coe_q (vm1 := vm1) (vm2 := vm2)
+    apply floatrep_le_pos_iff_coe_q (vm1 := le_of_lt vm1) (vm2 := vm2)
   · simp [floatrep_le]
     simp [coe_q]
     apply lt_trans (b := 0)
@@ -311,7 +330,7 @@ lemma floatrep_le_iff_coe_q_le (f1 f2 : FloatRep C) (vm1 : f1.valid_m) (vm2 : f2
   simp [floatrep_le, Flean.neg]
   rw [<-abs_of_pos (coe_q_false_pos (e := e) (m := m))]
   rw [<-abs_of_pos (coe_q_false_pos (e := e') (m := m'))]
-  exact floatrep_le_pos_coe_q ⟨false, e', m'⟩ _ vm2 vm1
+  exact floatrep_le_pos_iff_coe_q ⟨false, e', m'⟩ _ (le_of_lt vm2) vm1
 
 /-
 lemma round_max_e [R : Rounding] (q : ℚ) (e : ℤ) (h : |q| ≤ (1 + (C.prec - 1 : ℕ) / C.prec) * 2^e) :
