@@ -329,25 +329,44 @@ lemma le_round_up_of_le (q1 q2 : ℚ) (q1_nezero : q1 ≠ 0) (q2_nezero : q2 ≠
 
 -- gross casework
 def round_nearest (q : ℚ) : FloatRep C :=
-  let ⟨b, e, m⟩ : FloatRep C := round_down q -- round towards zero
-  let ⟨b', e', m'⟩ : FloatRep C := round_up q -- round away from zero
+  let f1 : FloatRep C := round_down q -- round towards zero
+  let f2 : FloatRep C := round_up q -- round away from zero
   -- Find which one is closest
-  if 2^e * m - |q| > |q| - 2^e' * m' then
-    ⟨b', e', m'⟩
-  else if 2^e * m - |q| < |q| - 2^e' * m' then
-    ⟨b, e, m⟩
-  else if m % 2 = 0 then
-    ⟨b, e, m⟩
+  if |coe_q f1| - |q| > |q| - |coe_q f2| then
+    f2
+  else if |coe_q f1| - |q| < |q| - |coe_q f2| then
+    f1
+  else if f2.m % 2 = 0 then
+    f1
   else
-    ⟨b', e', m'⟩
+    f2
 
 
 lemma round_nearest_eq_or (q : ℚ) :
   (round_nearest q : FloatRep C) = round_down q ∨ (round_nearest q : FloatRep C) = round_up q := by
   unfold round_nearest
-  rcases round_down q with ⟨s, e, m⟩
-  rcases round_up q with ⟨s', e', m'⟩
+  dsimp
+  split_ifs
   repeat (first | split | tauto)
+
+
+def round_q_to_int (q : ℚ) : ℤ :=
+  let i1 := ⌊q⌋
+  let i2 := ⌈q⌉
+  if q - i1 < i2 - q then
+    i1
+  else if q - i1 > i2 - q then
+    i2
+  else if i2 % 2 = 0 then
+    i1
+  else
+    i2
+
+/-lemma round_eq_def (q : ℚ) :
+  let exp := Int.log 2 |q|
+  let mantissa := (round_q_to_int (|q| * 2^(-exp) - 1) * C.prec).natAbs
+  coe_q (round_up q : FloatRep C) = coe_q (⟨(q < 0), exp, mantissa⟩ : FloatRep C) := by sorry
+  -/
 
 
 lemma round_nearest_coe (f : FloatRep C) (h : f.valid_m) :
