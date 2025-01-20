@@ -332,14 +332,14 @@ def round_nearest (q : ℚ) : FloatRep C :=
   let f1 : FloatRep C := round_down q -- round towards zero
   let f2 : FloatRep C := round_up q -- round away from zero
   -- Find which one is closest
-  if |coe_q f1| - |q| > |q| - |coe_q f2| then
-    f2
-  else if |coe_q f1| - |q| < |q| - |coe_q f2| then
+  if |q| - |coe_q f1| < |coe_q f2| - |q| then
     f1
+  else if |coe_q f2| - |q| < |q| - |coe_q f1| then
+    f2
   else if f2.m % 2 = 0 then
-    f1
-  else
     f2
+  else
+    f1
 
 
 lemma round_nearest_eq_or (q : ℚ) :
@@ -362,11 +362,19 @@ def round_q_to_int (q : ℚ) : ℤ :=
   else
     i2
 
-/-lemma round_eq_def (q : ℚ) :
-  let exp := Int.log 2 |q|
-  let mantissa := (round_q_to_int (|q| * 2^(-exp) - 1) * C.prec).natAbs
-  coe_q (round_up q : FloatRep C) = coe_q (⟨(q < 0), exp, mantissa⟩ : FloatRep C) := by sorry
-  -/
+
+lemma round_nearest_neg (q : ℚ) (q_nezero : q ≠ 0) :
+  round_nearest (-q) = Flean.neg (round_nearest q : FloatRep C) := by
+  simp only [round_nearest, round_down_neg q q_nezero, round_up_neg q q_nezero]
+  simp [coe_q_of_neg]
+  split_ifs with h1 h2 h3 h4 h5 <;> (try rfl)
+  · exfalso
+    apply h4
+    simp [Flean.neg] at h3
+    exact h3
+  · exfalso
+    apply h3
+    simpa [Flean.neg]
 
 
 lemma round_nearest_coe (f : FloatRep C) (h : f.valid_m) :
