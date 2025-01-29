@@ -13,10 +13,10 @@ variable {C : FloatCfg}
 
 abbrev IntRounder := Bool → ℚ → ℕ
 
-def round0 (q : ℚ) := ⌊q⌋.natAbs
-def roundinf (q : ℚ) := ⌈q⌉.natAbs
-def roundup (s : Bool) := if s then round0 else roundinf
-def rounddown (s : Bool) := if s then roundinf else round0
+def round0 (_ : Bool) (q : ℚ) := ⌊q⌋.natAbs
+def roundinf (_ : Bool) (q : ℚ) := ⌈q⌉.natAbs
+def roundup := fun (s : Bool) q => if s then round0 s q else roundinf s q
+def rounddown := fun (s : Bool) (q : ℚ) => if s then roundinf s q else round0 s q
 def round_near_int (q : ℚ) :=
   let i1 := ⌊q⌋
   let i2 := ⌈q⌉
@@ -29,7 +29,7 @@ def round_near_int (q : ℚ) :=
   else
     i2
 
-def roundnearest (q : ℚ) := (round_near_int q).natAbs
+def roundnearest (_ : Bool) (q : ℚ) := (round_near_int q).natAbs
 
 lemma round_near_int_of_nonneg {q : ℚ} (h : 0 ≤ q) : 0 ≤ round_near_int q := by
   rw [round_near_int]
@@ -220,6 +220,14 @@ lemma round_of_add_half (z : ℤ) :
   rw [show ⌈(1 : ℚ) / 2⌉ = 1 by norm_num]
   omega
 
+def floor_interval (z : ℤ) : Set ℚ := Set.Ico z (z + 1)
+def ceil_interval (z : ℤ) : Set ℚ := Set.Ioc (z - 1) z
+
+lemma floor_eq_iff_interval (z : ℤ) (q : ℚ) :
+  ⌊q⌋ = z ↔ q ∈ floor_interval z := Int.floor_eq_iff
+
+lemma ceil_eq_iff_interval (z : ℤ) (q : ℚ) :
+  ⌈q⌉ = z ↔ q ∈ ceil_interval z := Int.ceil_eq_iff
 
 def round_near_interval (z : ℤ) : Set ℚ :=
   if z % 2 = 0 then
@@ -234,10 +242,6 @@ lemma Icc_of_Ioo {α : Type} [PartialOrder α] {q x y : α} (h : q ∈ Set.Icc x
   constructor
   · exact lt_of_le_of_ne h.1 (not_x.symm)
   exact lt_of_le_of_ne h.2 not_y
-
-lemma Ioo_of_Icc {α : Type} [Preorder α] (x y : α):
-  Set.Ioo x y ⊆ Set.Icc x y := by
-  exact Set.Ioo_subset_Icc_self
 
 
 lemma round_near_eq_iff (q : ℚ) (z : ℤ) :
@@ -292,60 +296,136 @@ def evalRoundNearInt : PositivityExt where eval {u α} _ _ e := do
 
 
 
-class ValidRounder (f : ℚ → ℕ) where
-  le_iff_le q1 q2 : (0 ≤ q1) → (q1 ≤ q2) → f q1 ≤ f q2
-  leftInverse : Function.LeftInverse f ((↑) : ℕ → ℚ)
+class ValidRounder (f : Bool → ℚ → ℕ) where
+  le_iff_le s q1 q2 : (0 ≤ q1) → (q1 ≤ q2) → f s q1 ≤ f s q2
+  leftInverse s : Function.LeftInverse (f s) ((↑) : ℕ → ℚ)
 
 instance : ValidRounder round0 where
-  le_iff_le q1 q2 q1h q1le := by
+  le_iff_le s q1 q2 q1h q1le := by
     simp only [round0]
     zify
     apply abs_le_abs_of_nonneg
     · positivity
     exact Int.floor_le_floor q1le
-  leftInverse := by
+  leftInverse s := by
     intro n
     simp [round0]
 
 instance : ValidRounder roundinf where
-  le_iff_le q1 q2 q1h q1le := by
+  le_iff_le s q1 q2 q1h q1le := by
     simp only [roundinf]
     zify
     apply abs_le_abs_of_nonneg
     · positivity
     exact Int.ceil_le_ceil q1le
-  leftInverse := by
+  leftInverse s := by
     intro n
     simp [roundinf]
 
-instance (s : Bool) : ValidRounder (roundup s) := by
-  simp only [roundup]
-  cases s <;> simp only [Bool.false_eq_true, ↓reduceIte] <;>
-    infer_instance
+instance : ValidRounder roundup where
+  le_iff_le s := by
+    simp [roundup]
+    cases s <;> simp <;> apply ValidRounder.le_iff_le
+  leftInverse s := by
+    unfold roundup
+    cases s <;> simp [roundup] <;> apply ValidRounder.leftInverse
 
-instance (s : Bool) : ValidRounder (rounddown s) := by
-  simp only [rounddown]
-  cases s <;> simp only [Bool.false_eq_true, ↓reduceIte] <;>
-    infer_instance
+
+instance (s : Bool) : ValidRounder rounddown where
+  le_iff_le s := by
+    simp [rounddown]
+    cases s <;> simp <;> apply ValidRounder.le_iff_le
+  leftInverse s := by
+    unfold rounddown
+    cases s <;> simp [roundup] <;> apply ValidRounder.leftInverse
 
 instance : ValidRounder roundnearest where
-  le_iff_le q1 q2 q1h q1le := by
+  le_iff_le s q1 q2 q1h q1le := by
     simp only [roundnearest]
     zify
     apply abs_le_abs_of_nonneg
     · positivity
     exact round_near_le_round_near q1le
-  leftInverse := by
+  leftInverse s := by
     intro n
     rw [roundnearest]
     rw [show round_near_int n = n by exact_mod_cast round_near_int_of_int n]
     simp
 
 
+def roundf (r : IntRounder) (q : ℚ) : FloatRep C :=
+  let exp := Int.log 2 |q|
+  let mantissa := (|q| * 2^(-exp) - 1) * C.prec
+  ⟨q < 0, exp, r (q < 0) mantissa⟩
+
+def IntRounder.neg (r : IntRounder) : IntRounder := fun s ↦ r !s
+
+lemma neg_neg_r (r : IntRounder) :
+  r.neg.neg = r := by
+  funext s q
+  simp [IntRounder.neg]
+
+lemma neg_valid_rounder (r : IntRounder)  :
+  ValidRounder r.neg ↔ ValidRounder r := by
+  constructor
+  · intro h
+    rw [←neg_neg_r r]
+    exact ⟨fun s ↦ ValidRounder.le_iff_le !s,
+    fun s ↦ ValidRounder.leftInverse !s⟩
+  intro h
+  exact ⟨fun s ↦ ValidRounder.le_iff_le !s,
+  fun s ↦ ValidRounder.leftInverse !s⟩
+
+
+lemma roundf_neg (r : IntRounder) (q : ℚ)
+  (h : q ≠ 0) :
+  roundf (r.neg) (-q) = Flean.neg (roundf r q : FloatRep C) := by
+  by_cases h' : q ≥ 0
+  · have : q > 0 := lt_of_le_of_ne h' (Ne.symm h)
+    simp only [roundf, Left.neg_neg_iff, this, decide_true, abs_neg, IntRounder.neg, Bool.not_true,
+      zpow_neg, Flean.neg, decide_eq_false h'.not_lt, Bool.not_false]
+  have : q < 0 := not_le.mp h'
+  simp [roundf, IntRounder.neg, decide_eq_false, Flean.neg, this, le_of_lt this]
+
+lemma round_symmetry₁ (P : (r : IntRounder) → FloatRep C → Prop)
+  (h1 : ∀ r f, P (r.neg) (Flean.neg f) → P r f)
+  (h2 : ∀ r e m, P r ⟨false, e, m⟩) (r : IntRounder) (f : FloatRep C) :
+  P r f := by
+  rcases f with ⟨s, e, m⟩
+  cases s
+  · exact h2 r e m
+  apply h1
+  rw [<-neg_true]
+  exact h2 r.neg e m
+
+lemma roundf_coe (r : IntRounder) [rh : ValidRounder r]
+  (f : FloatRep C) (h : f.valid_m) :
+  roundf r (coe_q f) = f := by
+  revert h rh
+  apply round_symmetry₁ (r := r) (f := f)
+  · intro r
+    intro f
+    rw [coe_q_of_neg, neg_valid_rounder, neg_valid_m, roundf_neg r (coe_q f) coe_q_nezero, neg_invertible.injective.eq_iff]
+    tauto
+  intro r e m rh h
+  simp only [roundf, coe_q, Bool.false_eq_true, ↓reduceIte, one_mul, zpow_neg, FloatRep.mk.injEq,
+    decide_eq_false_iff_not, not_lt]
+  refine ⟨?_, ?_, ?_⟩
+  · positivity
+  · exact q_exp_eq_exp h
+  rw [<-zpow_neg, q_mantissa_eq_mantissa h]
+  rw [add_sub_cancel_right, div_mul_cancel₀, rh.leftInverse]
+  norm_cast
+  exact ne_of_gt C.prec_pos
+
+
 def round_down (q : ℚ) : FloatRep C :=
   let exp := Int.log 2 |q|
   let mantissa := ⌊(|q| * 2^(-exp) - 1) * C.prec⌋
   ⟨q < 0, exp, mantissa.natAbs⟩
+
+lemma round0_neg :
+  IntRounder.neg round0 = round0 := rfl
 
 lemma round_down_neg (q : ℚ) (h : q ≠ 0) :
   round_down (-q) = Flean.neg (round_down q : FloatRep C) := by
@@ -377,8 +457,8 @@ lemma round_down_coe (f : FloatRep C) (h : f.valid_m) :
 lemma coe_q_inj_valid {f1 f2 : FloatRep C}
   (h : f1.valid_m) (h' : f2.valid_m) :
   coe_q f1 = coe_q f2 → f1 = f2 := by
-  nth_rw 2 [<- round_down_coe (h := h), <- round_down_coe (h := h')]
-  exact fun a ↦ congrArg round_down a
+  nth_rw 2 [<- roundf_coe round0 (h := h), <- roundf_coe round0 (h := h')]
+  exact fun a ↦ congrArg (roundf round0) a
 
 lemma round_down_valid (q : ℚ) (h : q ≠ 0):
   (round_down q : FloatRep C).valid_m := by
