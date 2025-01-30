@@ -1,39 +1,113 @@
 import Flean.FloatCfg
 import Flean.LogRules
+import Flean.IntRounding
+
 
 variable {C : FloatCfg}
 
 structure SubnormRep (C : FloatCfg) where
   (s : Bool) (m : ℕ)
 
+def SubnormRep.neg (f : SubnormRep C) : SubnormRep C :=
+  ⟨¬f.s, f.m⟩
+
+lemma neg_subnorm_involutive : Function.Involutive (@SubnormRep.neg C) := by
+  unfold Function.Involutive
+  simp [SubnormRep.neg]
+
 def SubnormRep.nonzero (f : SubnormRep C) : Prop := f.m ≠ 0
+
+lemma neg_subnorm_nonzero {f : SubnormRep C} (h : f.nonzero) :
+  (f.neg).nonzero := by
+  simp [SubnormRep.nonzero, SubnormRep.neg] at *
+  exact h
 
 def subnormal_to_q : SubnormRep C →  ℚ
 | ⟨b, m⟩ =>
   let s := if b then -1 else 1
   s * (m / C.prec) * 2^C.emin
 
+lemma neg_subnormal_to_q (s : SubnormRep C) :
+  subnormal_to_q s.neg = -subnormal_to_q s := by
+  rw [subnormal_to_q, subnormal_to_q, SubnormRep.neg]
+  cases s.s <;> simp
+
+lemma subnormal_to_q_nonzero (s : SubnormRep C) :
+  subnormal_to_q s ≠ 0 ↔ s.nonzero := by
+  rw [not_iff_comm]
+  simp only [SubnormRep.nonzero, ne_eq, Decidable.not_not]
+  constructor
+  · intro h
+    rw [subnormal_to_q, h]
+    simp
+  intro h
+  rw [subnormal_to_q] at h
+  rcases s with ⟨b, m⟩
+  cases b <;> simp at h <;> dsimp <;> {
+    rcases h with (h | h) | h
+    · exact h
+    · linarith [C.prec_pos]
+    linarith [zpow_pos (a := (2 : ℚ)) rfl C.emin]
+  }
+
+
+def subnormal_round (r : IntRounder) (q : ℚ) : SubnormRep C :=
+  ⟨q < 0, r (q < 0) (|q| * 2^(-C.emin) * C.prec)⟩
+
+lemma neg_subnormal_round (r : IntRounder) {q : ℚ} (h : q ≠ 0) :
+  subnormal_round (C := C) (r.neg) (-q) = SubnormRep.neg (subnormal_round r q) := by
+  rw [subnormal_round, subnormal_round, SubnormRep.neg, IntRounder.neg]
+  simp
+  have not_to_ge : 0 < q ↔ 0 ≤ q := by
+    exact Iff.symm (Ne.le_iff_lt (id (Ne.symm h)))
+  have lt_to_lt : 0 < q ↔ ¬(q < 0) := by
+    rw [not_to_ge]
+    exact Iff.symm not_lt
+  refine ⟨not_to_ge, ?_⟩
+  simp_rw [lt_to_lt]
+  rw [decide_not]
+  simp
+
 def subnormal_round_down (q : ℚ) : SubnormRep C :=
-  ⟨q < 0, ⌊|q| * 2^(-C.emin) * C.prec⌋.natAbs⟩
+  subnormal_round round0 q
+
+lemma subnormal_round_coe (r : IntRounder) [rh : ValidRounder r]
+  {s : SubnormRep C}  (h : s.nonzero):
+  subnormal_round r (subnormal_to_q s) = s := by
+  --rw [subnormal_round, subnormal_to_q]
+  wlog h' : s.s = false generalizing r s
+  · have t1 := this (r := r.neg) (rh := (neg_valid_rounder r).2 rh) (neg_subnorm_nonzero h)
+    have t2 : s.neg.s = false := by simp [SubnormRep.neg, h']
+    replace t1 := t1 t2
+    rw [neg_subnormal_to_q, neg_subnormal_round] at t1
+    · apply neg_subnorm_involutive.injective t1
+    rw [subnormal_to_q_nonzero]
+    exact h
+  rcases s with ⟨b, m⟩
+  dsimp at h'
+  rw [h'] at h ⊢
+  rw [subnormal_round, subnormal_to_q]
+  simp only [Bool.false_eq_true, ↓reduceIte, one_mul, zpow_neg, SubnormRep.mk.injEq,
+    decide_eq_false_iff_not, not_lt]
+  have : 0 ≤ ↑m / ↑C.prec * (2 : ℚ) ^ C.emin := by positivity
+  constructor
+  · exact this
+  nth_rw 4 [show m = r false m by symm; apply ValidRounder.leftInverse]
+  congr
+  · apply decide_eq_false
+    exact not_lt_of_ge this
+  rw [abs_of_nonneg (by positivity), mul_assoc, mul_assoc, <-mul_assoc (2 ^ _),
+    mul_inv_cancel₀, one_mul]
+  rw [div_mul_cancel₀]
+  · norm_cast
+    linarith [C.prec_pos]
+  positivity
+
 
 
 lemma subnormal_round_down_coe (s : SubnormRep C) (h : s.nonzero) :
-  subnormal_round_down (subnormal_to_q s) = s := by
-  rcases s with ⟨b, m⟩
-  cases b <;> {
-    simp only [subnormal_round_down, subnormal_to_q, Bool.false_eq_true, ↓reduceIte, one_mul,
-      zpow_neg, SubnormRep.mk.injEq, decide_eq_false_iff_not, not_lt, ge_iff_le, neg_mul, one_mul, Left.neg_neg_iff,
-      decide_eq_true_iff, abs_neg]
-    have : C.prec > 0 := C.prec_pos
-    have m_nonneg : m > 0 := Nat.zero_lt_of_ne_zero h
-    constructor
-    · positivity
-    rw [abs_of_pos (by positivity), mul_assoc, mul_assoc, <-mul_assoc (2 ^ _),
-      mul_inv_cancel₀, one_mul]
-    rw [div_mul_cancel₀, Int.floor_natCast, Int.natAbs_ofNat]
-    · positivity
-    positivity
-  }
+  subnormal_round_down (subnormal_to_q s) = s :=
+  subnormal_round_coe round0 h
 
 lemma subnormal_exp_small {q : ℚ} (q_nonneg : q ≠ 0)
   (h : Int.log 2 |q| < C.emin) : |q| * 2 ^ (-C.emin) < 1 := by
@@ -55,71 +129,15 @@ lemma subnormal_exp_small {q : ℚ} (q_nonneg : q ≠ 0)
 def ValidSubnormalRounding (f : ℚ → SubnormRep C) : Prop :=
   ∀ q : ℚ, q ≠ 0 → Int.log 2 |q| < C.emin → (f q).2 ≤ C.prec
 
-lemma subnormal_round_down_valid :
-  ValidSubnormalRounding (subnormal_round_down : ℚ → SubnormRep C) := by
-  simp only [ValidSubnormalRounding, subnormal_round_down]
+lemma subnormal_round_valid (r : IntRounder) [rh : ValidRounder r] :
+  ValidSubnormalRounding (subnormal_round r : ℚ → SubnormRep C) := by
+  simp only [ValidSubnormalRounding, subnormal_round]
   intro q q_nonneg h
-  apply le_of_lt
-  exact small_floor_aux (subnormal_exp_small q_nonneg h) (by positivity) C.prec_pos
-
-def subnormal_round_up (q : ℚ) : SubnormRep C :=
-  ⟨q < 0, ⌈|q| * 2^(-C.emin) * C.prec⌉.natAbs⟩
-
--- This is essentially a copy of subnormal_round_down_coe
--- FIX
-lemma subnormal_round_up_coe (s : SubnormRep C) (h : s.nonzero) :
-  subnormal_round_up (subnormal_to_q s) = s := by
-  rcases s with ⟨b, m⟩
-  cases b <;> {
-    simp only [subnormal_round_up, subnormal_to_q, Bool.false_eq_true, ↓reduceIte, one_mul,
-      zpow_neg, SubnormRep.mk.injEq, decide_eq_false_iff_not, not_lt, neg_mul, one_mul, Left.neg_neg_iff, decide_eq_true_eq, abs_neg]
-    have : C.prec > 0 := C.prec_pos
-    have : m > 0 := Nat.zero_lt_of_ne_zero h
-    constructor
-    · positivity
-    rw [abs_of_pos (by positivity), mul_assoc, mul_assoc, <-mul_assoc (2 ^ _),
-      mul_inv_cancel₀, one_mul]
-    rw [div_mul_cancel₀, Int.ceil_natCast, Int.natAbs_ofNat]
-    · positivity
-    positivity
-  }
-
-lemma subnormal_round_up_valid :
-  ValidSubnormalRounding (subnormal_round_up : ℚ → SubnormRep C) := by
-  rw [ValidSubnormalRounding]
-  intro q q_nonneg h
-  rw [subnormal_round_up]
-  apply small_ceil (le_of_lt (subnormal_exp_small q_nonneg h)) (by positivity) (le_of_lt C.prec_pos)
-
-def subnormal_round_nearest (q : ℚ) : SubnormRep C :=
-  let sm := subnormal_round_down q
-  let sm' := subnormal_round_up q
-  if _ : |q| - sm.2 / C.prec < sm'.2 / C.prec - |q| then
-    sm
-  else if _ : |q| - sm.2 / C.prec > sm'.2 / C.prec - |q| then
-    sm'
-  else if _ : sm.2 % 2 = 0 then
-    sm
-  else
-    sm'
-
-lemma subnormal_round_nearest_eq (q : ℚ) :
-  (subnormal_round_nearest q : SubnormRep C) = subnormal_round_down q ∨
-  (subnormal_round_nearest q : SubnormRep C) = subnormal_round_up q := by
-  unfold subnormal_round_nearest
-  simp only [gt_iff_lt, ite_eq_left_iff, not_lt, tsub_le_iff_right]
-  repeat (first | split | tauto)
-
-lemma subnormal_round_nearest_coe (s : SubnormRep C) (h : s.nonzero) :
-  subnormal_round_nearest (subnormal_to_q s) = s := by
-  rcases subnormal_round_nearest_eq (subnormal_to_q s) with h' | h' <;> rw [h']
-  · apply subnormal_round_down_coe s h
-  exact subnormal_round_up_coe s h
-
-lemma subnormal_round_nearest_valid :
-  ValidSubnormalRounding (subnormal_round_nearest : ℚ → SubnormRep C) := by
-  simp only [ValidSubnormalRounding]
-  intro q q_nonneg h
-  rcases subnormal_round_nearest_eq q with h' | h' <;> rw [h']
-  · exact subnormal_round_down_valid q q_nonneg h
-  exact subnormal_round_up_valid q q_nonneg h
+  nth_rw 2 [show C.prec = r (decide (q < 0)) C.prec by symm; apply ValidRounder.leftInverse]
+  apply ValidRounder.le_iff_le
+  · positivity
+  nth_rw 2 [<-one_mul (C.prec : ℚ)]
+  apply mul_le_mul_of_nonneg_right
+  · apply le_of_lt
+    apply subnormal_exp_small q_nonneg h
+  linarith [C.prec_pos]

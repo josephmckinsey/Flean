@@ -10,6 +10,8 @@ inductive RoundingMode where
   | nearest
   | down
   | up
+  | tozero
+  | toinf
 
 class Rounding where
   mode : RoundingMode

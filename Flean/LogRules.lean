@@ -62,8 +62,8 @@ def q_exp_eq_exp {e : ℤ} {m : ℕ} (h : m < C.prec) :
   exact log_one_to_two_eq (by norm_num) mantissa_ge_one (by norm_cast)
 
 lemma q_mantissa_eq_mantissa {e : ℤ} {m : ℕ} (h : m < C.prec) :
-  |(((m : ℚ)/C.prec) + 1) * 2^e| * 2^(-Int.log 2 |(((m : ℚ)/C.prec) + 1) * 2^e|) = (m : ℚ) / C.prec + 1 := by
-  rw [q_exp_eq_exp h, abs_of_pos (by positivity), zpow_neg, mul_assoc,
+  |(((m : ℚ)/C.prec) + 1) * 2^e| * (2^(Int.log 2 |(((m : ℚ)/C.prec) + 1) * 2^e|))⁻¹ = (m : ℚ) / C.prec + 1 := by
+  rw [q_exp_eq_exp h, abs_of_pos (by positivity), mul_assoc,
     mul_inv_cancel₀, mul_one]
   positivity
 
@@ -97,3 +97,9 @@ lemma small_ceil {q : ℚ} {n : ℕ} (h : q ≤ 1) (h' : 0 ≤ q) (n_nonneg : 0 
   rw [Int.natAbs_of_nonneg (by positivity)]
   apply Int.ceil_le.mpr
   exact mul_le_of_le_one_left (by norm_cast) h
+
+lemma mantissa_nonneg (C : FloatCfg) (q : ℚ) (q_nezero : q ≠ 0) :
+  0 ≤ (|q| * ((2 : ℚ)^Int.log 2 |q|)⁻¹ - 1) * C.prec := by
+  apply mul_nonneg
+  · linarith [(mantissa_size_aux q q_nezero).1]
+  exact_mod_cast le_of_lt C.prec_pos
