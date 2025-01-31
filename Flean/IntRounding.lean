@@ -351,6 +351,10 @@ lemma neg_neg_r (r : IntRounder) :
   funext s q
   simp [IntRounder.neg]
 
+lemma ValidRounder.neg {r : IntRounder} (rh : ValidRounder r) :
+  ValidRounder r.neg := ⟨fun s ↦ ValidRounder.le_iff_le !s,
+  fun s ↦ ValidRounder.leftInverse !s⟩
+
 lemma neg_valid_rounder (r : IntRounder)  :
   ValidRounder r.neg ↔ ValidRounder r := by
   constructor
@@ -359,8 +363,7 @@ lemma neg_valid_rounder (r : IntRounder)  :
     exact ⟨fun s ↦ ValidRounder.le_iff_le !s,
     fun s ↦ ValidRounder.leftInverse !s⟩
   intro h
-  exact ⟨fun s ↦ ValidRounder.le_iff_le !s,
-  fun s ↦ ValidRounder.leftInverse !s⟩
+  exact h.neg
 
 lemma round_eq_or (r : IntRounder) [rh : ValidRounder r] (b : Bool)
   {q : ℚ} (h : 0 < q) :
@@ -386,3 +389,15 @@ lemma round_eq_or (r : IntRounder) [rh : ValidRounder r] (b : Bool)
     have := Int.floor_le_ceil q
     omega
   omega
+
+lemma roundr_le (r : IntRounder) [rh : ValidRounder r]
+  {b : Bool} {n : ℕ} {q : ℚ} (h : 0 ≤ q) (h' : q ≤ n) :
+  r b q ≤ n := by
+  rw [show n = r b n by rw [rh.leftInverse b]]
+  exact rh.le_iff_le b q n h h'
+
+lemma le_roundr (r : IntRounder) [rh : ValidRounder r]
+  {b : Bool} {n : ℕ} {q : ℚ} (h' : n ≤ q) :
+  n ≤ r b q := by
+  rw [show n = r b n by rw [rh.leftInverse b]]
+  exact rh.le_iff_le b n q (Nat.cast_nonneg' n) h'

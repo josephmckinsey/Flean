@@ -184,27 +184,7 @@ lemma roundf_of_neg' (r : IntRounder) (q : ℚ) (h : q < 0) :
 lemma round_down_of_neg' (q : ℚ) (h : q < 0) :
   (round_down q : FloatRep C).s = true := roundf_of_neg' round0 q h
 
-lemma casesQPlane (P : ℚ → ℚ → Prop)
-  (h1 : ∀q1 > 0, ∀q2 > 0, P q1 q2)
-  (h2 : ∀q1 < 0, ∀q2 > 0, P q1 q2)
-  (h3 : ∀q1 > 0, ∀q2 < 0, P q1 q2)
-  (h4 : ∀q1 < 0, ∀q2 < 0, P (-q1) (-q2) → P q2 q1) (q1 q2 : ℚ)
-  (q1_nezero : q1 ≠ 0) (q2_nezero : q2 ≠ 0) : P q1 q2 := by
-  have h : ∀q ≠ (0 : ℚ), q > 0 ∨ q < 0 := by
-    intro q qnezero
-    by_cases h : q > 0
-    · exact Or.inl h
-    exact lt_or_gt_of_ne (Ne.symm qnezero)
-  rcases (h q1 q1_nezero) with h' | h'
-  · rcases (h q2 q2_nezero) with h'' | h''
-    · exact h1 q1 h' q2 h''
-    exact h3 q1 h' q2 h''
-  · rcases (h q2 q2_nezero) with h'' | h''
-    · exact h2 q1 h' q2 h''
-    apply h4 q2 h'' q1 h'
-    apply h1
-    · exact Left.neg_pos_iff.mpr h''
-    exact Left.neg_pos_iff.mpr h'
+
 
 lemma le_roundf_of_le (r : IntRounder) [rh : ValidRounder r] (q1 q2 : ℚ) (q1_nezero : q1 ≠ 0) (q2_nezero : q2 ≠ 0) :
   q1 ≤ q2 → coe_q (roundf r q1 : FloatRep C) ≤ coe_q (roundf r q2 : FloatRep C) := by

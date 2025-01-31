@@ -104,10 +104,73 @@ lemma subnormal_round_coe (r : IntRounder) [rh : ValidRounder r]
   positivity
 
 
-
 lemma subnormal_round_down_coe (s : SubnormRep C) (h : s.nonzero) :
   subnormal_round_down (subnormal_to_q s) = s :=
   subnormal_round_coe round0 h
+
+lemma subnormal_round_le_of_le (r : IntRounder) [rh : ValidRounder r] (q1 q2 : ℚ)
+  (h : q1 ≤ q2) :
+  subnormal_to_q (C := C) (subnormal_round r q1) ≤ subnormal_to_q (C := C) (subnormal_round r q2) := by
+  by_cases h1 : q1 = 0
+  · rw [h1, subnormal_round]
+    simp only [lt_self_iff_false, decide_false, abs_zero, zero_mul]
+    nth_rw 1 [show (0 : ℚ) = ↑(0 : ℕ) by rfl]
+    rw [rh.leftInverse false]
+    rw [subnormal_to_q]
+    simp only [Bool.false_eq_true, ↓reduceIte, CharP.cast_eq_zero, zero_div, mul_zero, zero_mul]
+    have : decide (q2 < 0) = false := by simp; linarith
+    rw [subnormal_to_q, subnormal_round, this]
+    dsimp
+    positivity
+  by_cases h2 : q2 = 0
+  · rw [h2]
+    nth_rw 2 [subnormal_round]
+    simp only [lt_self_iff_false, decide_false, abs_zero, zpow_neg, zero_mul]
+    rw [show (0 : ℚ) = ↑(0 : ℕ) by rfl, rh.leftInverse false]
+    rw [subnormal_to_q, subnormal_to_q, subnormal_round]
+    simp only [↓reduceIte, CharP.cast_eq_zero, zero_div, mul_zero, zero_mul]
+    have : decide (q1 < 0) = true := by
+      apply decide_eq_true
+      apply lt_of_le_of_ne ?_ h1
+      exact h2 ▸ h
+    rw [this]
+    simp only [↓reduceIte, neg_mul, one_mul, Left.neg_nonpos_iff, ge_iff_le]
+    positivity
+  revert h r
+  apply casesQPlane (q1 := q1) (q2 := q2)
+  · intro q1 q1pos q2 q2pos r rh h
+    rw [subnormal_round, subnormal_round]
+    rw [subnormal_to_q, subnormal_to_q]
+    rw [decide_eq_false (by linarith), decide_eq_false (by linarith)]
+    simp only [Bool.false_eq_true, ↓reduceIte, one_mul]
+    gcongr
+    apply rh.le_iff_le
+    · positivity
+    gcongr
+  · intro q1 q1neg q2 q2pos r rh h
+    rw [subnormal_round, subnormal_round]
+    rw [subnormal_to_q, subnormal_to_q]
+    rw [decide_eq_true (by linarith), decide_eq_false (by linarith)]
+    simp only [↓reduceIte, zpow_neg, neg_mul, one_mul, Bool.false_eq_true]
+    have : ∀a b, (0 : ℚ) ≤ a → 0 ≤ b → -a ≤ b := by
+      intros a b ha hb
+      linarith
+    apply this
+    · positivity
+    positivity
+  · intro q1 q1pos q2 q2neg r rh h
+    exfalso
+    linarith
+  · intro q1 q1neg q2 q2neg ih r rh h
+    have : -q1 ≤ -q2 := by linarith
+    replace ih := ih (r.neg) (rh := rh.neg) this
+    rw [neg_subnormal_round, neg_subnormal_round,
+      neg_subnormal_to_q, neg_subnormal_to_q] at ih
+    · linarith
+    · exact Ne.symm (ne_of_gt q2neg)
+    exact Ne.symm (ne_of_gt q1neg)
+  · exact h1
+  exact h2
 
 lemma subnormal_exp_small {q : ℚ} (q_nonneg : q ≠ 0)
   (h : Int.log 2 |q| < C.emin) : |q| * 2 ^ (-C.emin) < 1 := by

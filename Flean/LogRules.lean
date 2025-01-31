@@ -103,3 +103,25 @@ lemma mantissa_nonneg (C : FloatCfg) (q : ℚ) (q_nezero : q ≠ 0) :
   apply mul_nonneg
   · linarith [(mantissa_size_aux q q_nezero).1]
   exact_mod_cast le_of_lt C.prec_pos
+
+lemma casesQPlane (P : ℚ → ℚ → Prop)
+  (h1 : ∀q1 > 0, ∀q2 > 0, P q1 q2)
+  (h2 : ∀q1 < 0, ∀q2 > 0, P q1 q2)
+  (h3 : ∀q1 > 0, ∀q2 < 0, P q1 q2)
+  (h4 : ∀q1 < 0, ∀q2 < 0, P (-q1) (-q2) → P q2 q1) (q1 q2 : ℚ)
+  (q1_nezero : q1 ≠ 0) (q2_nezero : q2 ≠ 0) : P q1 q2 := by
+  have h : ∀q ≠ (0 : ℚ), q > 0 ∨ q < 0 := by
+    intro q qnezero
+    by_cases h : q > 0
+    · exact Or.inl h
+    exact lt_or_gt_of_ne (Ne.symm qnezero)
+  rcases (h q1 q1_nezero) with h' | h'
+  · rcases (h q2 q2_nezero) with h'' | h''
+    · exact h1 q1 h' q2 h''
+    exact h3 q1 h' q2 h''
+  · rcases (h q2 q2_nezero) with h'' | h''
+    · exact h2 q1 h' q2 h''
+    apply h4 q2 h'' q1 h'
+    apply h1
+    · exact Left.neg_pos_iff.mpr h''
+    exact Left.neg_pos_iff.mpr h'
