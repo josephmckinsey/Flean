@@ -204,3 +204,16 @@ lemma subnormal_round_valid (r : IntRounder) [rh : ValidRounder r] :
   · apply le_of_lt
     apply subnormal_exp_small q_nonneg h
   linarith [C.prec_pos]
+
+lemma subnorm_zero {s : Bool} :
+  subnormal_to_q (⟨s, 0⟩ : SubnormRep C) = 0 := by
+  simp [subnormal_to_q]
+
+lemma roundsub_zero (r : IntRounder) [rh : ValidRounder r] :
+  subnormal_to_q (subnormal_round r (C := C) 0) = 0 := by
+  rw [subnormal_to_q, subnormal_round]
+  simp only [lt_self_iff_false, decide_false, Bool.false_eq_true, ↓reduceIte, abs_zero, zpow_neg,
+    zero_mul, one_mul, mul_eq_zero, div_eq_zero_iff, Nat.cast_eq_zero]
+  left
+  left
+  apply ValidRounder.leftInverse

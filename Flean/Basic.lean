@@ -32,7 +32,7 @@ def to_float [R : Rounding] (q : ℚ) : Flean.Float C :=
   else if h : Int.log 2 |q| < C.emin then
     let sp := roundsub q
     if h_eq_prec : sp.2 = C.prec then by
-      refine Flean.Float.normal ⟨q < 0, C.emin + 1, 0⟩ ?_ ?_
+      refine Flean.Float.normal ⟨q < 0, C.emin, 0⟩ ?_ ?_
       <;> simp only [FloatRep.valid_e, FloatRep.valid_m]
       · refine ⟨by linarith, by linarith [C.emin_lt_emax]⟩
       linarith [C.prec_pos]
@@ -246,6 +246,176 @@ lemma to_floar_to_rat [R : Rounding] (f : Flean.Float C) (finite : f.IsFinite) (
       rw [<-snormal_eq] at h_eq_pres
       simp only [mzero, this, h_eq_pres, ↓reduceDIte, Flean.Float.subnormal.injEq]
       rw [snormal_eq]
+
+
+/-
+I would like to prove that rounding preserves order
+for finite values
+First we split into 4 cases:
+- q1 and q2 are both normal
+- q1 and q2 are both subnormal
+- q1 rounds to a subnormal number and q2 to a normal
+- vice versa
+
+We've already proved the first two cases.
+For the third case, we can use
+the fact that the rounding exactly overlaps
+at the subnormal / normal boundary in a
+transitive ordering proof.
+
+Of course, this requires it's own case work
+to identify that boundary, but it only
+depends on the sign of the normal number.
+
+I should also note that we are really splitting
+the rational numbers not the floats.
+So we need to know how rounding behaves
+on different sets. i.e. which sets of ℚ
+give us something equivalent to subnormal rounding
+or normal rounding (conditioned on rounding giving us finite).
+
+Finally, we need to prove that rounding
+preserves the overlapping boundary of those sets.
+-/
+
+lemma splitIsFinite [R : Rounding] {q : ℚ}
+  (h : (to_float q : Flean.Float C).IsFinite) :
+  ((|q| ≤ 2^C.emin) ∧
+    to_rat (to_float q : Flean.Float C)
+  = subnormal_to_q (roundsub (C := C) q))
+  ∨ (2^C.emin ≤ |q| ∧ to_rat (to_float q : Flean.Float C) = coe_q (round_rep (C := C) q)) := by
+  set f := to_float q with f_def
+  unfold to_float at f_def
+  split_ifs at f_def with i1 i2
+  · left
+    constructor
+    · rw [i1, abs_zero]
+      positivity
+    rw [f_def, i1, roundsub, roundsub_zero]
+    simp [to_float, to_rat, subnormal_to_q]
+  · left
+    constructor
+    · apply le_of_lt
+      exact (Int.lt_zpow_iff_log_lt (b := 2) (by norm_num) (by positivity)).2 i2
+    dsimp at f_def
+    split_ifs at f_def with h'
+    · --simp only [i1, ↓reduceDIte, i2, h']
+      rw [f_def, to_rat, coe_q, subnormal_to_q, h']
+      rw [roundsub, subnormal_round]
+      dsimp
+      rw [mul_assoc, mul_assoc]
+      congr 1
+      rw [div_self]
+      · simp
+      norm_cast
+      exact ne_of_gt C.prec_pos
+    rw [f_def, to_rat]
+  match sem_def : round_rep q with
+  | { s := s, e := e, m := m } => {
+    dsimp at f_def
+    simp_rw [sem_def] at f_def
+    split_ifs at f_def with i3
+    · exfalso
+      rw [f_def] at h
+      simp [Flean.Float.IsFinite] at h
+    right
+    constructor
+    · apply (Int.zpow_le_iff_le_log (b := 2) (by norm_num) (by positivity)).2
+      exact not_lt.mp i2
+    rw [f_def, to_rat]
+  }
+
+lemma subnormal_to_q_emin :
+  subnormal_to_q (C := C) ⟨false, C.prec⟩ = 2^C.emin := by
+  rw [subnormal_to_q, div_self]
+  · simp
+  exact_mod_cast ne_of_gt C.prec_pos
+
+lemma subnormal_to_q_neg_emin :
+  subnormal_to_q (C := C) ⟨true, C.prec⟩ = -2^C.emin := by
+  rw [<-subnormal_to_q_emin]
+  simp [subnormal_to_q]
+
+lemma coe_q_emin : coe_q (C := C) ⟨false, C.emin, 0⟩ = 2^C.emin := by
+  rw [coe_q]
+  simp
+
+lemma coe_q_neg_emin : coe_q (C := C) ⟨true, C.emin, 0⟩ = -2^C.emin := by
+  rw [<-coe_q_emin]
+  simp [coe_q]
+
+lemma roundsub_emin [R : Rounding] : roundsub (C := C) (2^C.emin) = ⟨false, C.prec⟩ := by
+  rw [roundsub, <-subnormal_to_q_emin, subnormal_round_coe]
+  simp [SubnormRep.nonzero, ne_of_gt, C.prec_pos]
+
+lemma roundsub_neg_emin [R : Rounding] : roundsub (C := C) (-2^C.emin) = ⟨true, C.prec⟩ := by
+  rw [roundsub, <-subnormal_to_q_neg_emin, subnormal_round_coe]
+  simp [SubnormRep.nonzero, ne_of_gt, C.prec_pos]
+
+lemma roundrep_emin [R : Rounding] : round_rep (C := C) (2^C.emin) = ⟨false, C.emin, 0⟩ := by
+  rw [<-coe_q_emin]
+  apply round_rep_coe
+  simp [FloatRep.valid_m, C.prec_pos]
+
+lemma roundrep_neg_emin [R : Rounding] : round_rep (C := C) (-2^C.emin) = ⟨true, C.emin, 0⟩ := by
+  rw [<-coe_q_neg_emin]
+  apply round_rep_coe
+  simp [FloatRep.valid_m, C.prec_pos]
+
+lemma float_le_float_of [R : Rounding] (q1 q2 : ℚ)
+  (h1 : (to_float (C := C) q1).IsFinite)
+  (h2 : (to_float (C := C) q2).IsFinite) (h : q1 ≤ q2) :
+  to_rat (to_float (C := C) q1) ≤ to_rat (to_float (C := C) q2) := by
+  --let motive (x y : Flean.Float C) := to_rat x ≤ to_rat y
+  by_cases h' : q1 = q2
+  · rw [h']
+  rcases splitIsFinite (h := h1) with ⟨q1_small, h1⟩ | ⟨q1_large, h1⟩
+  · rw [h1]
+    rcases splitIsFinite (h := h2) with ⟨q2_small, h2⟩ | ⟨q2_large, h2⟩
+    · rw [h2]
+      apply subnormal_round_le_of_le (C := C) (r := round_function R) q1 q2 h
+    · rw [h2]
+      have : q2 > 0 := by
+        contrapose! h'
+        rw [abs_of_nonpos h'] at q2_large
+        rw [abs_of_nonpos (le_trans h h')] at q1_small
+        apply le_antisymm h
+        have := le_trans q1_small q2_large
+        linarith
+      apply le_trans (b := 2^C.emin)
+      · rw [<-subnormal_to_q_emin, <-roundsub_emin]
+        apply subnormal_round_le_of_le (C := C) (r := round_function R) q1 (2^C.emin)
+        exact (abs_le.mp q1_small).2
+      rw [<-abs_of_pos this, <-coe_q_emin, <-roundrep_emin]
+      apply le_roundf_of_le
+      · positivity
+      · positivity
+      exact q2_large
+  rw [h1]
+  rcases splitIsFinite (h := h2) with ⟨q2_small, h2⟩ | ⟨q2_large, h2⟩
+  · rw [h2]
+    have : q1 < 0 := by
+      contrapose! h'
+      rw [abs_of_nonneg h'] at q1_large
+      apply le_antisymm h
+      apply le_trans _ q1_large
+      exact (abs_le.mp q2_small).2
+    apply le_trans (b := -2^C.emin)
+    · rw [<-coe_q_neg_emin, <-roundrep_neg_emin]
+      apply le_roundf_of_le
+      · exact ne_of_lt this
+      · rw [<-neg_ne_zero, neg_neg]
+        positivity
+      rw [abs_of_neg this] at q1_large
+      exact le_neg_of_le_neg q1_large
+    rw [<-subnormal_to_q_neg_emin, <-roundsub_neg_emin]
+    apply subnormal_round_le_of_le (C := C) (r := round_function R)
+    exact (abs_le.mp q2_small).1
+  rw [h2]
+  apply le_roundf_of_le (C := C) (r := round_function R) q1 q2
+  · exact abs_pos.mp (lt_of_lt_of_le (zpow_pos rfl C.emin) q1_large)
+  · exact abs_pos.mp (lt_of_lt_of_le (zpow_pos rfl C.emin) q2_large)
+  exact h
 
 /-
 lemma to_float_in_range [R : Rounding] (q : ℚ) (h : |q| ≤ max_float_q C) :
