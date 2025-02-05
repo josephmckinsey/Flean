@@ -217,3 +217,76 @@ lemma roundsub_zero (r : IntRounder) [rh : ValidRounder r] :
   left
   left
   apply ValidRounder.leftInverse
+
+lemma rounddownsub_le (q : ℚ) :
+  subnormal_to_q (subnormal_round rounddown (C := C) q) ≤ q := by
+  rw [subnormal_to_q, subnormal_round, rounddown]
+  have t1 : 0 < (C.prec : ℚ) := by norm_cast; exact C.prec_pos
+  have t2 : 0 < (2 : ℚ)^C.emin := by positivity
+  have t3 := div_pos t1 t2
+  by_cases h : q < 0
+  · simp only [h, decide_true, ↓reduceIte, zpow_neg, neg_mul, one_mul]
+    rw [roundinf, neg_le]
+    rw [<-abs_of_pos (a := -q) (Left.neg_pos_iff.mpr h)]
+    rw [abs_neg]
+    rw [Nat.cast_natAbs]
+    simp only [Int.cast_abs, ge_iff_le]
+    rw [abs_of_neg, abs_of_pos]
+    · rw [<-div_eq_mul_inv]
+      rw [div_mul]--, <-div_le_div_iff_of_pos_right t3]
+      rw [le_div_iff₀ t3]
+      field_simp
+      apply Int.le_ceil
+    · norm_cast
+      apply Int.lt_ceil.mpr
+      apply mul_pos ?_ t1
+      apply mul_pos ?_ (inv_pos.mpr t2)
+      exact Left.neg_pos_iff.mpr h
+    exact h
+  simp only [h, decide_false, Bool.false_eq_true, ↓reduceIte, zpow_neg, one_mul]
+  replace h := le_of_not_lt h
+  rw [round0, abs_of_nonneg h, Nat.cast_natAbs]
+  rw [abs_of_nonneg]
+  · rw [<-div_eq_mul_inv]
+    rw [div_mul]
+    rw [div_le_iff₀ t3]
+    field_simp
+    apply Int.floor_le
+  positivity
+
+lemma le_roundupsub (q : ℚ) :
+  q ≤ subnormal_to_q (subnormal_round roundup (C := C) q) := by
+  rw [subnormal_to_q, subnormal_round]
+  have t1 : 0 < (C.prec : ℚ) := by norm_cast; exact C.prec_pos
+  by_cases h : q < 0
+  · rw [roundup]
+    simp only [h, decide_true, ↓reduceIte, zpow_neg, neg_mul, one_mul]
+    rw [le_neg]
+    rw [abs_of_neg h, round0, Nat.cast_natAbs]
+    rw [Int.cast_abs]
+    rw [abs_of_nonneg]
+    · rw [<-div_eq_mul_inv]
+      rw [div_mul]--, <-div_le_div_iff_of_pos_right t3]
+      rw [div_le_iff₀ (div_pos t1 (by positivity))]
+      field_simp
+      apply Int.floor_le
+    norm_cast
+    apply Int.le_floor.mpr
+    apply mul_nonneg ?_ ?_
+    · apply mul_nonneg
+      · apply le_neg.mpr
+        exact le_of_lt h
+      positivity
+    apply le_of_lt
+    exact_mod_cast C.prec_pos
+  rw [roundup]
+  simp only [h, decide_false, Bool.false_eq_true, ↓reduceIte, zpow_neg, one_mul, ge_iff_le]
+  replace h := le_of_not_lt h
+  rw [roundinf, abs_of_nonneg h, Nat.cast_natAbs]
+  rw [abs_of_nonneg]
+  · rw [<-div_eq_mul_inv]
+    rw [div_mul]--, <-div_le_div_iff_of_pos_right t3]
+    rw [le_div_iff₀ (div_pos t1 (by positivity))]
+    field_simp
+    apply Int.le_ceil
+  positivity

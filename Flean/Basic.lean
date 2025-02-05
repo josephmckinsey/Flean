@@ -417,6 +417,45 @@ lemma float_le_float_of [R : Rounding] (q1 q2 : ℚ)
   · exact abs_pos.mp (lt_of_lt_of_le (zpow_pos rfl C.emin) q2_large)
   exact h
 
+def to_float_down : ℚ → Flean.Float C := to_float (R := .mk (.down))
+def to_float_up : ℚ → Flean.Float C := to_float (R := .mk (.up))
+
+lemma float_down_le (q : ℚ) (h : (to_float_down (C := C) q).IsFinite) :
+  to_rat (to_float_down (C := C) q) ≤ q := by
+  unfold to_float_down at h ⊢
+  rcases splitIsFinite (R := .mk (.down)) (h := h) with ⟨q_small, h⟩ | ⟨q_large, h⟩
+  · rw [h]
+    apply rounddownsub_le
+  rw [h]
+  apply roundf_down_le
+  apply abs_pos.mp
+  linarith [show 0 < (2:ℚ) ^ C.emin by positivity]
+
+lemma le_float_up (q : ℚ) (h : (to_float_up (C := C) q).IsFinite) :
+  q ≤ to_rat (to_float_up (C := C) q) := by
+  unfold to_float_up at h ⊢
+  rcases splitIsFinite (R := .mk (.up)) (h := h) with ⟨q_small, h⟩ | ⟨q_large, h⟩
+  · rw [h]
+    apply le_roundupsub
+  rw [h]
+  apply le_roundf_up
+  apply abs_pos.mp
+  linarith [show 0 < (2:ℚ) ^ C.emin by positivity]
+
+/-
+lemma float_up_minus_down (q : ℚ) (h : (to_float_down (C := C) q).IsFinite)
+  (h' : (to_float_up (C := C) q).IsFinite) :
+  to_rat (to_float_up (C := C) q) - to_rat (to_float_down (C := C) q)
+    ≤ max ((C.prec : ℚ)⁻¹) ((Int.log 2 |q|) / C.prec) := by
+  unfold to_float_down to_float_up at *
+  rcases splitIsFinite (R := .mk (.down)) (h := h) with ⟨q_small, h⟩ | ⟨q_large, h⟩
+  <;> rcases splitIsFinite (R := .mk (.up)) (h := h') with ⟨q_small', h'⟩ | ⟨q_large', h'⟩
+  · rw [h, h']
+    apply le_max_of_le_left
+    unfold roundsub
+    simp only [round_function]
+ -/
+
 /-
 lemma to_float_in_range [R : Rounding] (q : ℚ) (h : |q| ≤ max_float_q C) :
   (to_float q : Flean.Float C).IsFinite := by

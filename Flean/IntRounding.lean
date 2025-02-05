@@ -390,6 +390,26 @@ lemma round_eq_or (r : IntRounder) [rh : ValidRounder r] (b : Bool)
     omega
   omega
 
+lemma round_eq_or' (r : IntRounder) [rh : ValidRounder r] (b : Bool)
+  {q : ℚ} (h : 0 < q) :
+  r b q = rounddown b q ∨ r b q = roundup b q := by
+  cases b
+  · rcases round_eq_or r false h
+    · left
+      rw [rounddown, round0]
+      assumption
+    right
+    rw [roundup, roundinf]
+    assumption
+  rcases round_eq_or r true h
+  · right
+    rw [roundup, roundinf]
+    assumption
+  left
+  rw [rounddown, round0]
+  assumption
+
+
 lemma roundr_le (r : IntRounder) [rh : ValidRounder r]
   {b : Bool} {n : ℕ} {q : ℚ} (h : 0 ≤ q) (h' : q ≤ n) :
   r b q ≤ n := by
