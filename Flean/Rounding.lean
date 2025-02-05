@@ -402,3 +402,41 @@ lemma le_roundf_up (q : ℚ) (q_nezero : q ≠ 0) :
   rw [add_comm]
   apply q_le_floatrep_ceil
   exact q_nezero
+
+lemma roundf_up_minus_down {q : ℚ} (q_nezero : q ≠ 0) :
+  coe_q (roundf (C := C) roundup q) -
+    coe_q (roundf (C := C) rounddown q) ≤ 2^(Int.log 2 |q|) / C.prec := by
+  wlog h : 0 < q generalizing q
+  · replace this := this (q := -q) ?_ ?_
+    · rw [<-roundup_neg] at this
+      nth_rw 1 [<-rounddown_neg] at this
+      rw [roundf_neg, roundf_neg, coe_q_of_neg, coe_q_of_neg] at this
+      rw [neg_sub_neg, abs_neg] at this
+      · exact this
+      · exact q_nezero
+      exact q_nezero
+    · exact neg_ne_zero.mpr q_nezero
+    rw [lt_neg]
+    simp at h
+    apply lt_of_le_of_ne
+    · exact h
+    exact q_nezero
+  rw [roundf, roundf, coe_normalize _ (roundf_almost_valid roundup q q_nezero)]
+  rw [coe_normalize _ (roundf_almost_valid rounddown q q_nezero)]
+  rw [coe_q, coe_q]
+  have : ¬(q < 0) := by linarith
+  simp only [this, decide_false, Bool.false_eq_true, ↓reduceIte, roundup, roundinf, one_mul,
+    rounddown, round0, tsub_le_iff_right, ge_iff_le]
+  have := Int.ceil_le_floor_add_one ((|q| * ((2 : ℚ) ^ Int.log 2 |q|)⁻¹ - 1) * C.prec)
+  qify at this
+  apply (convert_rep_strict_mono (C := C) q).monotone at this
+  simp at this
+  rw [Int.cast_natAbs, abs_of_nonneg, add_comm]
+  rw [Int.cast_natAbs]
+  nth_rw 5 [abs_of_nonneg]
+  convert this using 1
+  · ring
+  · apply Int.floor_nonneg.mpr
+    apply mantissa_nonneg C q q_nezero
+  apply Int.ceil_nonneg
+  apply mantissa_nonneg C q q_nezero

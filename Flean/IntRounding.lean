@@ -421,3 +421,13 @@ lemma le_roundr (r : IntRounder) [rh : ValidRounder r]
   n ≤ r b q := by
   rw [show n = r b n by rw [rh.leftInverse b]]
   exact rh.le_iff_le b n q (Nat.cast_nonneg' n) h'
+
+lemma roundup_neg : IntRounder.neg roundup = rounddown := by
+  ext s q
+  simp [IntRounder.neg, roundup, rounddown, round0, roundinf]
+  cases s <;> rfl
+
+lemma rounddown_neg : IntRounder.neg rounddown = roundup := by
+  ext s q
+  simp [IntRounder.neg, roundup, rounddown, round0, roundinf]
+  cases s <;> rfl

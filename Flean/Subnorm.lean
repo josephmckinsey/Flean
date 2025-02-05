@@ -290,3 +290,38 @@ lemma le_roundupsub (q : ℚ) :
     field_simp
     apply Int.le_ceil
   positivity
+
+lemma subnormal_up_minus_down (q : ℚ) :
+  subnormal_to_q (subnormal_round (C := C) roundup q) -
+    subnormal_to_q (subnormal_round (C := C) rounddown q) ≤ 2^C.emin * (↑C.prec)⁻¹ := by
+  simp_rw [subnormal_to_q, subnormal_round, roundup, rounddown]
+  simp_rw [round0, roundinf]
+  wlog h : q ≥ 0 generalizing q
+  · simp at h
+    replace this := this (q := -q) (by linarith)
+    have h' : ¬(-q < 0) := by linarith
+    simp [h]
+    simp [h'] at this
+    rw [add_comm]
+    exact this
+  have h' : ¬(q < 0) := by linarith
+  simp only [h', decide_false, Bool.false_eq_true, ↓reduceIte, zpow_neg, one_mul, tsub_le_iff_right,
+    ge_iff_le]
+  rw [Int.cast_natAbs, Int.cast_natAbs]
+  rw [abs_of_nonneg (by positivity)]
+  nth_rw 2 [abs_of_nonneg (by positivity)]
+  have := Int.ceil_le_floor_add_one (|q| * ((2 : ℚ)^C.emin)⁻¹ * C.prec)
+  have h : StrictMono (fun x => x / C.prec * (2 : ℚ)^C.emin) := by
+    apply StrictMono.mul_const
+    apply StrictMono.div_const
+    · exact fun ⦃a b⦄ a ↦ a
+    · exact_mod_cast C.prec_pos
+    positivity
+  qify at this
+  apply h.monotone at this
+  simp at this
+  field_simp at this
+  field_simp
+  rw [add_comm, add_mul, add_div, one_mul] at this
+  field_simp at this
+  exact this

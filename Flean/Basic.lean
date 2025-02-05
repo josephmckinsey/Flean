@@ -442,19 +442,55 @@ lemma le_float_up (q : ℚ) (h : (to_float_up (C := C) q).IsFinite) :
   apply abs_pos.mp
   linarith [show 0 < (2:ℚ) ^ C.emin by positivity]
 
-/-
+lemma to_float_boundary (R : Rounding) {q : ℚ} (h : |q| = 2^C.emin) :
+  to_rat (to_float (C := C) q) = q := by
+  rw [abs_eq (by positivity)] at h
+  have ne0 : (2 : ℚ)^C.emin ≠ 0 := by positivity
+  have logemin : Int.log 2 |(2 : ℚ)^C.emin| = C.emin := by
+    rw [abs_of_pos (by positivity)]
+    exact Int.log_zpow (b := 2) (by norm_num) C.emin
+  rcases h with h | h
+  · rw [h, to_float]
+    simp_rw [logemin]
+    simp only [ne0, ↓reduceDIte, lt_self_iff_false, gt_iff_lt]
+    simp_rw [roundrep_emin]
+    simp [C.emin_lt_emax.not_lt, to_rat, coe_q]
+  rw [h, to_float]
+  simp_rw [neg_eq_zero, abs_neg]
+  simp_rw [logemin]
+  simp_rw [roundrep_neg_emin]
+  simp [ne0, C.emin_lt_emax, C.emin_lt_emax.not_lt]
+  simp [C.emin_lt_emax.not_lt, to_rat, coe_q]
+
+
 lemma float_up_minus_down (q : ℚ) (h : (to_float_down (C := C) q).IsFinite)
   (h' : (to_float_up (C := C) q).IsFinite) :
   to_rat (to_float_up (C := C) q) - to_rat (to_float_down (C := C) q)
-    ≤ max ((C.prec : ℚ)⁻¹) ((Int.log 2 |q|) / C.prec) := by
+    ≤ max ((2 : ℚ)^C.emin / (C.prec : ℚ)) (2 ^ (Int.log 2 |q|) / C.prec) := by
   unfold to_float_down to_float_up at *
+  by_cases q_is_boundary : |q| = 2^C.emin
+  · rw [to_float_boundary (R := .mk (.down)) q_is_boundary]
+    rw [to_float_boundary (R := .mk (.up)) q_is_boundary]
+    simp only [sub_self]
+    positivity
   rcases splitIsFinite (R := .mk (.down)) (h := h) with ⟨q_small, h⟩ | ⟨q_large, h⟩
   <;> rcases splitIsFinite (R := .mk (.up)) (h := h') with ⟨q_small', h'⟩ | ⟨q_large', h'⟩
   · rw [h, h']
     apply le_max_of_le_left
     unfold roundsub
     simp only [round_function]
- -/
+    apply subnormal_up_minus_down (C := C)
+  · exfalso
+    apply q_is_boundary
+    apply le_antisymm q_small q_large'
+  · exfalso
+    apply q_is_boundary
+    apply le_antisymm q_small' q_large
+  rw [h, h']
+  apply le_max_of_le_right
+  apply roundf_up_minus_down
+  apply abs_pos.mp
+  linarith [show 0 < (2:ℚ) ^ C.emin by positivity]
 
 /-
 lemma to_float_in_range [R : Rounding] (q : ℚ) (h : |q| ≤ max_float_q C) :
