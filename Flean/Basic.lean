@@ -278,6 +278,9 @@ Finally, we need to prove that rounding
 preserves the overlapping boundary of those sets.
 -/
 
+-- Alternative
+-- |q| ≤ 2^C.emin → to_rat (to_float q : Flean.Float C) = subnormal_to_q (roundsub q)
+-- 2^C.emin ≤ |q| → to_rat (to_float q : Flean.Float C) = coe_q (round_rep q)
 lemma splitIsFinite [R : Rounding] {q : ℚ}
   (h : (to_float q : Flean.Float C).IsFinite) :
   ((|q| ≤ 2^C.emin) ∧
@@ -462,7 +465,6 @@ lemma to_float_boundary (R : Rounding) {q : ℚ} (h : |q| = 2^C.emin) :
   simp [ne0, C.emin_lt_emax, C.emin_lt_emax.not_lt]
   simp [C.emin_lt_emax.not_lt, to_rat, coe_q]
 
-
 lemma float_up_minus_down (q : ℚ) (h : (to_float_down (C := C) q).IsFinite)
   (h' : (to_float_up (C := C) q).IsFinite) :
   to_rat (to_float_up (C := C) q) - to_rat (to_float_down (C := C) q)
@@ -492,17 +494,73 @@ lemma float_up_minus_down (q : ℚ) (h : (to_float_down (C := C) q).IsFinite)
   apply abs_pos.mp
   linarith [show 0 < (2:ℚ) ^ C.emin by positivity]
 
-/-
-lemma to_float_in_range [R : Rounding] (q : ℚ) (h : |q| ≤ max_float_q C) :
+lemma float_eq_up_or_down [R : Rounding] (q : ℚ) :
+  (to_float (C := C) q) = (to_float_down (C := C) q) ∨
+  (to_float (C := C) q) = (to_float_up (C := C) q) := by
+  by_cases q_nezero : q = 0
+  · left
+    rw [q_nezero]
+    simp [to_float, to_float_down, subnormal_to_q]
+  unfold to_float_down to_float_up to_float roundsub round_rep
+  split_ifs with h1
+  · simp only
+    set x := |q| * 2 ^ (-C.emin) * ↑C.prec with x_def
+    have := round_eq_or' (r := round_function R) (b := q < 0)
+        (q := x) (h := by positivity)
+    simp_rw [subnormal_round]
+    rcases this with h' | h'
+    · left
+      simp_rw [h']
+      simp [x_def, round_function]
+    right
+    simp_rw [h']
+    simp [x_def, round_function]
+  simp only
+  set x := ((|q| * (2 ^ Int.log 2 |q|)⁻¹ - 1) * ↑C.prec) with x_def
+  have := by
+    refine round_eq_or' (r := round_function R) (b := q < 0)
+      (q := x) (h := ?_)
+    apply mantissa_nonneg (q_nezero := q_nezero)
+  simp_rw [roundf]
+  rcases this with h' | h'
+  · left
+    simp_rw [h']
+    simp [x_def, round_function]
+  right
+  simp_rw [h']
+  simp [x_def, round_function]
+
+lemma float_error [R : Rounding] (q : ℚ) (h : (to_float_down (C := C) q).IsFinite) (h' : (to_float_up (C := C) q).IsFinite) :
+  |to_rat (to_float (C := C) q) - q| ≤ max ((2 : ℚ)^C.emin / C.prec) (2 ^ (Int.log 2 |q|) / C.prec) := by
+  apply le_trans (b := to_rat (to_float_up (C := C) q) - to_rat (to_float_down (C := C) q))
+  · rcases float_eq_up_or_down q with h'' | h'' <;> rw [h'']
+    · rw [abs_sub_comm, abs_of_nonneg]
+      · rw [sub_le_sub_iff_right]
+        apply le_float_up (C := C)
+        rw [to_float_up]
+        exact h'
+      rw [sub_nonneg]
+      apply float_down_le (C := C) (h := h)
+    rw [abs_of_nonneg]
+    · rw [sub_le_sub_iff_left]
+      apply float_down_le (C := C) (h := h)
+    rw [sub_nonneg]
+    apply le_float_up (C := C) (h := h')
+  apply float_up_minus_down (C := C) q h h'
+
+
+/-lemma max_float [R : Rounding] max_float_q C
+
+lemma to_float_in_range [R : Rounding] {q : ℚ} (h : |q| ≤ max_float_q C) :
   (to_float q : Flean.Float C).IsFinite := by
+  rw [max_float]
   unfold to_float
   split_ifs
   · simp [Flean.Float.IsFinite]
   · dsimp
     split_ifs <;> simp [Flean.Float.IsFinite]
   simp only [Flean.Float.IsFinite]
-  sorry
-
+  simp
 -/
 
 -- This is wrong. Why?

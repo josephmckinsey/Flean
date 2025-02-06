@@ -366,7 +366,7 @@ lemma neg_valid_rounder (r : IntRounder)  :
   exact h.neg
 
 lemma round_eq_or (r : IntRounder) [rh : ValidRounder r] (b : Bool)
-  {q : ℚ} (h : 0 < q) :
+  {q : ℚ} (h : 0 ≤ q) :
   r b q = round0 b q ∨ r b q = roundinf b q := by
   have rfloor_le : r b (⌊q⌋.natAbs) ≤ r b q:= by
     apply ValidRounder.le_iff_le
@@ -374,14 +374,14 @@ lemma round_eq_or (r : IntRounder) [rh : ValidRounder r] (b : Bool)
     rw [show (⌊q⌋.natAbs : ℚ) = (⌊q⌋.natAbs : ℤ) by rfl]
     rw [Int.natAbs_of_nonneg]
     · exact Int.floor_le q
-    exact Int.floor_nonneg.mpr (le_of_lt h)
+    exact Int.floor_nonneg.mpr h
   have le_rceil : r b q ≤ r b (⌈q⌉.natAbs) := by
     apply ValidRounder.le_iff_le
     · positivity
     rw [show (⌈q⌉.natAbs : ℚ) = (⌈q⌉.natAbs : ℤ) by rfl]
     rw [Int.natAbs_of_nonneg]
     · exact Int.le_ceil q
-    exact Int.ceil_nonneg (le_of_lt h)
+    exact Int.ceil_nonneg h
   rw [rh.leftInverse b] at rfloor_le le_rceil
   rw [round0, roundinf]
   have : ⌊q⌋ = ⌈q⌉ ∨ ⌊q⌋ + 1 = ⌈q⌉ := by
@@ -391,7 +391,7 @@ lemma round_eq_or (r : IntRounder) [rh : ValidRounder r] (b : Bool)
   omega
 
 lemma round_eq_or' (r : IntRounder) [rh : ValidRounder r] (b : Bool)
-  {q : ℚ} (h : 0 < q) :
+  {q : ℚ} (h : 0 ≤ q) :
   r b q = rounddown b q ∨ r b q = roundup b q := by
   cases b
   · rcases round_eq_or r false h
