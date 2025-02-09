@@ -138,7 +138,7 @@ lemma to_rat_max_float :
   to_rat (max_float C) = max_float_q C := by
   simp only [to_rat, max_float, coe_q_max_float_rep]
 
-lemma log_lt_emax_of_max_float (q : ℚ) (q_nonneg : q ≠ 0) (h : |q| ≤ max_float_q C) :
+lemma log_lt_emax_of_max_float {q : ℚ} (q_nonneg : q ≠ 0) (h : |q| ≤ max_float_q C) :
   Int.log 2 |q| ≤ C.emax := by
   suffices Int.log 2 |q| < C.emax + 1 by linarith
   rw [<-Int.lt_zpow_iff_log_lt (by norm_num) (by positivity)]
@@ -548,25 +548,40 @@ lemma float_error [R : Rounding] (q : ℚ) (h : (to_float_down (C := C) q).IsFin
     apply le_float_up (C := C) (h := h')
   apply float_up_minus_down (C := C) q h h'
 
+def Flean.Float.neg : Flean.Float C → Flean.Float C
+| Flean.Float.inf s => Flean.Float.inf (¬s)
+| Flean.Float.nan => Flean.Float.nan
+| Flean.Float.normal f ve vm => Flean.Float.normal f.neg ve vm
+| Flean.Float.subnormal sm vm => Flean.Float.subnormal sm.neg vm
 
-/-lemma max_float [R : Rounding] max_float_q C
 
 lemma to_float_in_range [R : Rounding] {q : ℚ} (h : |q| ≤ max_float_q C) :
   (to_float q : Flean.Float C).IsFinite := by
-  rw [max_float]
-  unfold to_float
-  split_ifs
-  · simp [Flean.Float.IsFinite]
-  · dsimp
-    split_ifs <;> simp [Flean.Float.IsFinite]
-  simp only [Flean.Float.IsFinite]
-  simp
--/
+  by_cases q_nezero : q = 0
+  · rw [q_nezero]
+    simp [to_float, Flean.Float.IsFinite]
+  have := log_lt_emax_of_max_float q_nezero h
+  rw [Flean.Float.IsFinite]
+  · rw [to_float]
+    simp [q_nezero, this.not_lt]
+    split_ifs with h1 h2 h3
+    · simp
+    · simp
+    · simp
+      have := round_min_e' (C := C) q q_nezero
+      exfalso
+      suffices (round_rep q).e ≤ C.emax by
+        linarith
+      exact roundf_in_range _ q_nezero h
+    · simp
+  simp [to_float]
+  split_ifs <;> simp
 
--- This is wrong. Why?
--- example [R : Rounding] (q : ℚ) (h : |q| ≤ max_float_q C ) :
-  --|to_rat (to_float q : Flean.Float C) - q| ≤ 1/C.prec := by
-  --sorry
+lemma float_error' [R : Rounding] (q : ℚ) (h : |q| ≤ max_float_q C) :
+  |to_rat (to_float (C := C) q) - q| ≤ max ((2 : ℚ)^C.emin / C.prec) (2 ^ (Int.log 2 |q|) / C.prec) := by
+  apply float_error
+  · apply to_float_in_range (R := .mk (.down)) h
+  apply to_float_in_range (R := .mk (.up)) h
 
 
 def DoubleCfg : FloatCfg := FloatCfg.mk (1 <<< 52) (-1022) 1023 (by norm_num) (

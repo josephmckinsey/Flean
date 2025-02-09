@@ -39,31 +39,31 @@ lemma coe_q_false_pos {e : ℤ} {m : ℕ} :
     (0 : ℚ) ≤ m / C.prec := by simp [div_nonneg, Nat.cast_nonneg']
     _ < m/C.prec + 1 := lt_add_one _
 
-def Flean.neg {C  : FloatCfg} : FloatRep C → FloatRep C
+def FloatRep.neg {C  : FloatCfg} : FloatRep C → FloatRep C
 | ⟨s, e, m⟩ => ⟨!s, e, m⟩
 
-lemma Flean.neg_neg : (@Flean.neg C) ∘ (@Flean.neg C) = id := by
+lemma Flean.neg_neg : (@FloatRep.neg C) ∘ (@FloatRep.neg C) = id := by
   funext ⟨s, e, m⟩
-  simp [Flean.neg]
+  simp [FloatRep.neg]
 
-lemma neg_invertible : Function.Bijective (@Flean.neg C) := by
+lemma neg_invertible : Function.Bijective (@FloatRep.neg C) := by
   apply Function.bijective_iff_has_inverse.2
-  refine ⟨Flean.neg, Function.leftInverse_iff_comp.2 ?_, Function.rightInverse_iff_comp.2 ?_⟩
+  refine ⟨FloatRep.neg, Function.leftInverse_iff_comp.2 ?_, Function.rightInverse_iff_comp.2 ?_⟩
   <;> exact Flean.neg_neg
 
 lemma neg_valid_m {f : FloatRep C} :
-  (Flean.neg f).valid_m ↔ (f.valid_m) := by
-  simp [FloatRep.valid_m, Flean.neg]
+  (FloatRep.neg f).valid_m ↔ (f.valid_m) := by
+  simp [FloatRep.valid_m, FloatRep.neg]
 
 lemma coe_q_of_neg (f : FloatRep C) :
-  coe_q (Flean.neg f) = -coe_q f:= by
-  by_cases h : f.s <;> simp [coe_q, h, Flean.neg]
+  coe_q (FloatRep.neg f) = -coe_q f:= by
+  by_cases h : f.s <;> simp [coe_q, h, FloatRep.neg]
   · ring
   ring
 
 
-lemma neg_false (e : ℤ) (m : ℕ) : ⟨true, e, m⟩ = (Flean.neg ⟨false, e, m⟩ : FloatRep C) := rfl
-lemma neg_true (e : ℤ) (m : ℕ) : ⟨false, e, m⟩ = (Flean.neg ⟨true, e, m⟩ : FloatRep C) := rfl
+lemma neg_false (e : ℤ) (m : ℕ) : ⟨true, e, m⟩ = (FloatRep.neg ⟨false, e, m⟩ : FloatRep C) := rfl
+lemma neg_true (e : ℤ) (m : ℕ) : ⟨false, e, m⟩ = (FloatRep.neg ⟨true, e, m⟩ : FloatRep C) := rfl
 
 lemma coe_q_true_neg {e : ℤ} {m : ℕ} :
   coe_q (⟨true, e, m⟩ : FloatRep C) < 0 := by
@@ -78,7 +78,7 @@ lemma coe_q_nezero {f : FloatRep C} :
   linarith [coe_q_true_neg (C := C) (e := e) (m := m)]
 
 lemma floatrep_of_false₁ (P : FloatRep C → Prop)
-  (h1 : ∀ f, P (Flean.neg f) → P f)
+  (h1 : ∀ f, P (FloatRep.neg f) → P f)
   (h2 : ∀ e m, P ⟨false, e, m⟩) (f : FloatRep C) :
   P f := by
   rcases f with ⟨s, e, m⟩
@@ -89,8 +89,8 @@ lemma floatrep_of_false₁ (P : FloatRep C → Prop)
   exact h2 e m
 
 lemma floatrep_of_false₂ (P : FloatRep C → FloatRep C → Prop)
-  (h1 : ∀ f1 f2, P (Flean.neg f1) f2 → P f1 f2)
-  (h2 : ∀ f1 f2, P f1 (Flean.neg f2) → P f1 f2)
+  (h1 : ∀ f1 f2, P (FloatRep.neg f1) f2 → P f1 f2)
+  (h2 : ∀ f1 f2, P f1 (FloatRep.neg f2) → P f1 f2)
   (h3 : ∀ e e' m m', P ⟨false, e, m⟩ ⟨false, e', m'⟩) (f1 f2 : FloatRep C) :
   P f1 f2 := by
   apply floatrep_of_false₁ (f := f2)
@@ -115,16 +115,16 @@ lemma coe_q_of_Cprec (b : Bool) (e : ℤ) :
 def FloatRep.valid_e (f : FloatRep C) : Prop := C.emin ≤ f.e ∧ f.e ≤ C.emax
 
 lemma neg_valid_e {f : FloatRep C} :
-  (Flean.neg f).valid_e ↔ (f.valid_e) := by
-  simp [FloatRep.valid_e, Flean.neg]
+  (FloatRep.neg f).valid_e ↔ (f.valid_e) := by
+  simp [FloatRep.valid_e, FloatRep.neg]
 
 lemma floatrep_e_le_of_coe_q (f1 f2 : FloatRep C) (vm2 : f2.valid_m) (h : |coe_q f1| ≤ |coe_q f2|) :
   f1.e ≤ f2.e := by
   revert h vm2
   apply floatrep_of_false₂ (f1 := f1) (f2 := f2)
-  · simp_rw [coe_q_of_neg]; simp [Flean.neg]
+  · simp_rw [coe_q_of_neg]; simp [FloatRep.neg]
   · intro f1 f2 h
-    rw [neg_valid_m, coe_q_of_neg, abs_neg, Flean.neg] at h
+    rw [neg_valid_m, coe_q_of_neg, abs_neg, FloatRep.neg] at h
     exact h
   intro e1 e2 m1 m2 vm2 h
   rw [abs_of_pos coe_q_false_pos, abs_of_pos coe_q_false_pos] at h
@@ -227,18 +227,18 @@ lemma floatrep_pos_equiv (f1 f2 : FloatRep C) :
   left; exact lt_of_le_of_ne h.1 h'
 
 lemma floatrep_le_pos_neg₁ (f1 f2 : FloatRep C) :
-  floatrep_le_pos (Flean.neg f1) f2 ↔ floatrep_le_pos f1 f2 := by
-  simp [Flean.neg, floatrep_le_pos]
+  floatrep_le_pos (FloatRep.neg f1) f2 ↔ floatrep_le_pos f1 f2 := by
+  simp [FloatRep.neg, floatrep_le_pos]
 
 lemma floatrep_le_pos_neg₂ (f1 f2 : FloatRep C) :
-  floatrep_le_pos f1 (Flean.neg f2) ↔ floatrep_le_pos f1 f2 := by
-  simp [Flean.neg, floatrep_le_pos]
+  floatrep_le_pos f1 (FloatRep.neg f2) ↔ floatrep_le_pos f1 f2 := by
+  simp [FloatRep.neg, floatrep_le_pos]
 
 lemma floatrep_le_pos_coe_q (f1 f2 : FloatRep C) (vm1 : f1.m ≤ C.prec) :
   (floatrep_le_pos f1 f2) → |coe_q f1| ≤ |coe_q f2| := by
   revert vm1
-  have almost_valid_neg {C : FloatCfg} (f : FloatRep C) : (Flean.neg f).m ≤ C.prec ↔ f.m ≤ C.prec := by
-    simp [Flean.neg]
+  have almost_valid_neg {C : FloatCfg} (f : FloatRep C) : (FloatRep.neg f).m ≤ C.prec ↔ f.m ≤ C.prec := by
+    simp [FloatRep.neg]
   apply floatrep_of_false₂ (f1 := f1) (f2 := f2)
   · simp [floatrep_le_pos_neg₁, almost_valid_neg, coe_q_of_neg]
   · simp [floatrep_le_pos_neg₂, coe_q_of_neg]
@@ -302,7 +302,7 @@ def floatrep_le (f1 f2 : FloatRep C) : Prop :=
   | (false, false) => floatrep_le_pos f1 f2
   | (false, true) => False
   | (true, false) => True
-  | (true, true) => (floatrep_le_pos (Flean.neg f2) (Flean.neg f1))
+  | (true, true) => (floatrep_le_pos (FloatRep.neg f2) (FloatRep.neg f1))
 
 lemma floatrep_le_iff_coe_q_le (f1 f2 : FloatRep C) (vm1 : f1.valid_m) (vm2 : f2.valid_m) :
   floatrep_le f1 f2 ↔ coe_q f1 ≤ coe_q f2 := by
@@ -327,27 +327,7 @@ lemma floatrep_le_iff_coe_q_le (f1 f2 : FloatRep C) (vm1 : f1.valid_m) (vm2 : f2
   rw [neg_false, neg_false]
   rw [coe_q_of_neg, coe_q_of_neg]
   rw [neg_le_neg_iff]
-  simp [floatrep_le, Flean.neg]
+  simp [floatrep_le, FloatRep.neg]
   rw [<-abs_of_pos (coe_q_false_pos (e := e) (m := m))]
   rw [<-abs_of_pos (coe_q_false_pos (e := e') (m := m'))]
   exact floatrep_le_pos_iff_coe_q ⟨false, e', m'⟩ _ (le_of_lt vm2) vm1
-
-/-
-lemma round_max_e [R : Rounding] (q : ℚ) (e : ℤ) (h : |q| ≤ (1 + (C.prec - 1 : ℕ) / C.prec) * 2^e) :
-  (round_rep q : FloatRep C).e ≤ e := by
-  set q' := coe_q (⟨false, e, C.prec - 1⟩ : FloatRep C) with q_def
-  have : q' = (1 + (C.prec - 1 : ℕ) / C.prec) * 2^e := by
-    rw [q_def, coe_q]
-    simp only [Bool.false_eq_true, ↓reduceIte, one_mul, mul_eq_mul_right_iff]
-    left; rw [add_comm]
-  rw [<-this] at h
-  sorry
-
-lemma round_in_range [R : Rounding] (q : ℚ) (h : |q| ≤ max_float_q C) :
-  (round_rep q : FloatRep C).e ≤ C.emax := by
-  rw [round_rep]
-  split
-  · sorry
-  · sorry
-  sorry
--/

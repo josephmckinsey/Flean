@@ -39,9 +39,9 @@ lemma coe_normalize (f : FloatRep C) (h : f.m ≤ C.prec) :
 
 
 lemma normalize_neg (f : FloatRep C) :
-  (Flean.neg f).normalize = Flean.neg f.normalize := by
+  (FloatRep.neg f).normalize = FloatRep.neg f.normalize := by
   rcases f with ⟨s, e, m⟩
-  simp only [FloatRep.normalize, Flean.neg]
+  simp only [FloatRep.normalize, FloatRep.neg]
   split_ifs <;> simp
 
 def roundf (r : IntRounder) (q : ℚ) : FloatRep C :=
@@ -53,18 +53,18 @@ def roundf (r : IntRounder) (q : ℚ) : FloatRep C :=
 
 lemma roundf_neg (r : IntRounder) {q : ℚ}
   (h : q ≠ 0) :
-  roundf (r.neg) (-q) = Flean.neg (roundf r q : FloatRep C) := by
+  roundf (r.neg) (-q) = FloatRep.neg (roundf r q : FloatRep C) := by
   rw [roundf, roundf, <-normalize_neg]
   apply congrArg FloatRep.normalize
   by_cases h' : q ≥ 0
   · have : q > 0 := lt_of_le_of_ne h' (Ne.symm h)
     simp only [roundf, Left.neg_neg_iff, this, decide_true, abs_neg, IntRounder.neg, Bool.not_true,
-      zpow_neg, Flean.neg, decide_eq_false h'.not_lt, Bool.not_false]
+      zpow_neg, FloatRep.neg, decide_eq_false h'.not_lt, Bool.not_false]
   have : q < 0 := not_le.mp h'
-  simp [roundf, IntRounder.neg, decide_eq_false, Flean.neg, this, le_of_lt this]
+  simp [roundf, IntRounder.neg, decide_eq_false, FloatRep.neg, this, le_of_lt this]
 
 lemma round_symmetry₁ (P : (r : IntRounder) → FloatRep C → Prop)
-  (h1 : ∀ r f, P (r.neg) (Flean.neg f) → P r f)
+  (h1 : ∀ r f, P (r.neg) (FloatRep.neg f) → P r f)
   (h2 : ∀ r e m, P r ⟨false, e, m⟩) (r : IntRounder) (f : FloatRep C) :
   P r f := by
   rcases f with ⟨s, e, m⟩
@@ -107,7 +107,7 @@ lemma round0_neg :
   IntRounder.neg round0 = round0 := rfl
 
 lemma round_down_neg (q : ℚ) (h : q ≠ 0) :
-  round_down (-q) = Flean.neg (round_down q : FloatRep C) := by
+  round_down (-q) = FloatRep.neg (round_down q : FloatRep C) := by
   rw [round_down, <-round0_neg, roundf_neg, round0_neg]
   exact h
 
@@ -225,7 +225,7 @@ lemma le_roundf_of_le (r : IntRounder) [rh : ValidRounder r] (q1 q2 : ℚ) (q1_n
     replace ih := ih (r.neg) (by linarith) (rh := (neg_valid_rounder r).mpr rh)
     rw [roundf_neg r, roundf_neg] at ih
     simp_rw [floatrep_le, roundf_of_neg' r q1 q1h, roundf_of_neg' r q2 q2h]
-    simp_rw [floatrep_le, Flean.neg] at ih
+    simp_rw [floatrep_le, FloatRep.neg] at ih
     simp_rw [roundf_of_neg' r q1 q1h, roundf_of_neg' r q2 q2h] at ih
     convert ih
     · exact Ne.symm (ne_of_gt q2h)
@@ -247,9 +247,9 @@ lemma e_le_iff_log (f1 f2 : FloatRep C) (vm1 : f1.valid_m) (vm2 : f2.valid_m) :
   revert vm1 vm2
   apply floatrep_of_false₂ (f1 := f1) (f2 := f2)
   · simp_rw [coe_q_of_neg, neg_valid_m]
-    simp [Flean.neg]
+    simp [FloatRep.neg]
   · simp_rw [coe_q_of_neg, neg_valid_m]
-    simp [Flean.neg]
+    simp [FloatRep.neg]
   intro e1 e2 m1 m2 vm1 vm2
   simp only [coe_q, Bool.false_eq_true, ↓reduceIte, one_mul]
   rw [q_exp_eq_exp vm1, q_exp_eq_exp vm2]
@@ -308,7 +308,7 @@ lemma round_min_e (r: IntRounder) [rh : ValidRounder r] {q : ℚ} (h : q ≠ 0) 
   by_cases h' : q > 0
   · nth_rw 2 [←abs_of_pos (a := q) h']
     apply roundf_min_abs_e (r := r) h
-  rw [show (roundf (C := C) r q).e = (Flean.neg (roundf (C := C) r q)).e by simp [Flean.neg]]
+  rw [show (roundf (C := C) r q).e = (FloatRep.neg (roundf (C := C) r q)).e by simp [FloatRep.neg]]
   rw [<-roundf_neg r h]
   rw [←abs_of_nonneg (a := (-q))]
   · rw [<-abs_neg]
@@ -440,3 +440,67 @@ lemma roundf_up_minus_down {q : ℚ} (q_nezero : q ≠ 0) :
     apply mantissa_nonneg C q q_nezero
   apply Int.ceil_nonneg
   apply mantissa_nonneg C q q_nezero
+
+-- Probably should have used e_le_iff_log
+lemma round_max_e (r : IntRounder) [rh : ValidRounder r] {q : ℚ} (q_nezero : q ≠ 0) (e : ℤ) (h : |q| ≤ (2- (1 : ℚ) / C.prec) * 2^e) :
+  (roundf r q : FloatRep C).e ≤ e := by
+  set q' := coe_q (⟨false, e, C.prec - 1⟩ : FloatRep C) with q'_def
+  have : q' = (2 - (1 : ℚ) / C.prec) * 2^e := by
+    rw [q'_def, coe_q]
+    simp only [Bool.false_eq_true, ↓reduceIte, one_mul, mul_eq_mul_right_iff]
+    left
+    rw [Nat.cast_pred C.prec_pos]
+    rw [sub_div, div_self (ne_of_gt (by exact_mod_cast C.prec_pos))]
+    ring
+  rw [<-this] at h
+  wlog h' : 0 < q generalizing q r
+  · have negq : 0 < -q := by
+      rw [lt_neg]
+      apply lt_of_le_of_ne
+      · exact le_of_not_lt h'
+      exact q_nezero
+    replace this := this r.neg (rh := rh.neg) (q := -q)
+      (neg_ne_zero.mpr q_nezero) (by simpa) negq
+    rw [roundf_neg (h := q_nezero), FloatRep.neg] at this
+    exact this
+  rw [abs_of_pos h'] at h
+  have q'pos : 0 < q' := by
+    rw [this]
+    apply mul_pos
+    · apply sub_pos.mpr
+      rw [div_lt_iff₀ (by exact_mod_cast C.prec_pos)]
+      norm_cast
+      have := C.prec_pos
+      omega
+    positivity
+  apply le_roundf_of_le (C := C) r q q' q_nezero (ne_of_gt q'pos) at h
+  have h : |coe_q (roundf (C := C) r q)| ≤ |coe_q (roundf (C := C) r q')| := by
+    rw [abs_of_pos, abs_of_pos]
+    · exact h
+    · apply roundf_of_pos
+      exact q'pos
+    apply roundf_of_pos
+    apply h'
+  have log_le : Int.log 2 |coe_q (roundf (C := C) r q)| ≤ Int.log 2 |coe_q (roundf (C := C) r q')| := by
+    apply Int.log_mono_right
+    · apply abs_pos_of_pos
+      apply roundf_of_pos
+      apply h'
+    exact h
+  rw [<-e_le_iff_log] at log_le
+  · convert log_le
+    rw [q'_def]
+    rw [roundf_coe]
+    simp [FloatRep.valid_m, C.prec_pos]
+  · apply roundf_valid
+    exact q_nezero
+  apply roundf_valid
+  exact ne_of_gt q'pos
+
+lemma roundf_in_range (r : IntRounder) [rh : ValidRounder r] {q : ℚ} (q_nezero : q ≠ 0) (h : |q| ≤ max_float_q C) :
+  (roundf r q : FloatRep C).e ≤ C.emax :=
+  round_max_e r q_nezero C.emax h
+
+lemma round_rep_in_range [R : Rounding] {q : ℚ} (q_nezero : q ≠ 0) (h : |q| ≤ max_float_q C) :
+  (round_rep q : FloatRep C).e ≤ C.emax :=
+  round_max_e (round_function R) q_nezero C.emax h
