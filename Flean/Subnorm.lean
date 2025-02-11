@@ -17,7 +17,7 @@ lemma neg_subnorm_involutive : Function.Involutive (@SubnormRep.neg C) := by
 
 def SubnormRep.nonzero (f : SubnormRep C) : Prop := f.m ≠ 0
 
-lemma neg_subnorm_nonzero {f : SubnormRep C} (h : f.nonzero) :
+lemma subnorm_neg_nonzero {f : SubnormRep C} (h : f.nonzero) :
   (f.neg).nonzero := by
   simp [SubnormRep.nonzero, SubnormRep.neg] at *
   exact h
@@ -27,7 +27,7 @@ def subnormal_to_q : SubnormRep C →  ℚ
   let s := if b then -1 else 1
   s * (m / C.prec) * 2^C.emin
 
-lemma neg_subnormal_to_q (s : SubnormRep C) :
+lemma subnormal_to_q_neg (s : SubnormRep C) :
   subnormal_to_q s.neg = -subnormal_to_q s := by
   rw [subnormal_to_q, subnormal_to_q, SubnormRep.neg]
   cases s.s <;> simp
@@ -76,10 +76,10 @@ lemma subnormal_round_coe (r : IntRounder) [rh : ValidRounder r]
   subnormal_round r (subnormal_to_q s) = s := by
   --rw [subnormal_round, subnormal_to_q]
   wlog h' : s.s = false generalizing r s
-  · have t1 := this (r := r.neg) (rh := (neg_valid_rounder r).2 rh) (neg_subnorm_nonzero h)
+  · have t1 := this (r := r.neg) (rh := (neg_valid_rounder r).2 rh) (subnorm_neg_nonzero h)
     have t2 : s.neg.s = false := by simp [SubnormRep.neg, h']
     replace t1 := t1 t2
-    rw [neg_subnormal_to_q, neg_subnormal_round] at t1
+    rw [subnormal_to_q_neg, neg_subnormal_round] at t1
     · apply neg_subnorm_involutive.injective t1
     rw [subnormal_to_q_nonzero]
     exact h
@@ -165,7 +165,7 @@ lemma subnormal_round_le_of_le (r : IntRounder) [rh : ValidRounder r] (q1 q2 : �
     have : -q1 ≤ -q2 := by linarith
     replace ih := ih (r.neg) (rh := rh.neg) this
     rw [neg_subnormal_round, neg_subnormal_round,
-      neg_subnormal_to_q, neg_subnormal_to_q] at ih
+      subnormal_to_q_neg, subnormal_to_q_neg] at ih
     · linarith
     · exact Ne.symm (ne_of_gt q2neg)
     exact Ne.symm (ne_of_gt q1neg)

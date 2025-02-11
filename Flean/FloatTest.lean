@@ -2,6 +2,10 @@ import Batteries.Data.Rat.Float
 import Flean.FloatRep
 import Flean.Basic
 
+def DoubleCfg : FloatCfg := FloatCfg.mk (1 <<< 52) (-1022) 1023 (by norm_num) (
+  Nat.zero_lt_succ 4503599627370495
+)
+
 def frep : FloatCfg := FloatCfg.mk 256 (-127) 127 (by norm_num) (by norm_num)
 
 def frep64 := FloatRep DoubleCfg

@@ -365,6 +365,21 @@ lemma roundrep_neg_emin [R : Rounding] : round_rep (C := C) (-2^C.emin) = ⟨tru
   apply round_rep_coe
   simp [FloatRep.valid_m, C.prec_pos]
 
+def Flean.Float.neg : Flean.Float C → Flean.Float C
+| Flean.Float.inf s => Flean.Float.inf (¬s)
+| Flean.Float.nan => Flean.Float.nan
+| Flean.Float.normal f ve vm => Flean.Float.normal f.neg ve vm
+| Flean.Float.subnormal sm vm => Flean.Float.subnormal sm.neg vm
+
+lemma to_float_neg (f : Flean.Float C) (h : f.IsFinite) :
+  to_rat (Flean.Float.neg f) = -to_rat f := by
+  unfold to_rat
+  rcases f with _ | _ | ⟨f, ve, vm⟩ | ⟨sm, vm⟩
+  · simp [Flean.Float.neg]
+  · simp [Flean.Float.neg]
+  · simp [Flean.Float.neg, coe_q_of_neg]
+  simp [Flean.Float.neg, subnormal_to_q_neg]
+
 lemma float_le_float_of [R : Rounding] (q1 q2 : ℚ)
   (h1 : (to_float (C := C) q1).IsFinite)
   (h2 : (to_float (C := C) q2).IsFinite) (h : q1 ≤ q2) :
@@ -548,13 +563,6 @@ lemma float_error [R : Rounding] (q : ℚ) (h : (to_float_down (C := C) q).IsFin
     apply le_float_up (C := C) (h := h')
   apply float_up_minus_down (C := C) q h h'
 
-def Flean.Float.neg : Flean.Float C → Flean.Float C
-| Flean.Float.inf s => Flean.Float.inf (¬s)
-| Flean.Float.nan => Flean.Float.nan
-| Flean.Float.normal f ve vm => Flean.Float.normal f.neg ve vm
-| Flean.Float.subnormal sm vm => Flean.Float.subnormal sm.neg vm
-
-
 lemma to_float_in_range [R : Rounding] {q : ℚ} (h : |q| ≤ max_float_q C) :
   (to_float q : Flean.Float C).IsFinite := by
   by_cases q_nezero : q = 0
@@ -582,8 +590,3 @@ lemma float_error' [R : Rounding] (q : ℚ) (h : |q| ≤ max_float_q C) :
   apply float_error
   · apply to_float_in_range (R := .mk (.down)) h
   apply to_float_in_range (R := .mk (.up)) h
-
-
-def DoubleCfg : FloatCfg := FloatCfg.mk (1 <<< 52) (-1022) 1023 (by norm_num) (
-  Nat.zero_lt_succ 4503599627370495
-)
