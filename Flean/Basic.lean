@@ -437,6 +437,7 @@ lemma float_le_float_of [R : Rounding] (q1 q2 : ℚ)
 
 def to_float_down : ℚ → Flean.Float C := to_float (R := .mk (.down))
 def to_float_up : ℚ → Flean.Float C := to_float (R := .mk (.up))
+def to_float_nearest : ℚ → Flean.Float C := to_float (R := .mk (.nearest))
 
 lemma float_down_le (q : ℚ) (h : (to_float_down (C := C) q).IsFinite) :
   to_rat (to_float_down (C := C) q) ≤ q := by
@@ -590,3 +591,16 @@ lemma float_error' [R : Rounding] (q : ℚ) (h : |q| ≤ max_float_q C) :
   apply float_error
   · apply to_float_in_range (R := .mk (.down)) h
   apply to_float_in_range (R := .mk (.up)) h
+
+lemma float_nearest_error (q : ℚ) (h : (to_float_nearest (C := C) q).IsFinite) :
+  |q - to_rat (to_float_nearest (C := C) q)| ≤ max ((2 : ℚ) ^ (Int.log 2 |q| - 1) / C.prec) (2 ^ (C.emin - 1) / C.prec) := by
+  unfold to_float_nearest at h ⊢
+  rcases splitIsFinite (R := .mk (.nearest)) (h := h) with ⟨q_small, h⟩ | ⟨q_large, h⟩
+  · rw [h]
+    apply le_sup_of_le_right
+    apply subnormal_round_close
+  rw [h]
+  apply le_sup_of_le_left
+  apply roundf_near_close
+  apply abs_pos.mp
+  linarith [show 0 < (2:ℚ) ^ C.emin by positivity]

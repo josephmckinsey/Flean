@@ -505,7 +505,7 @@ lemma round_rep_in_range [R : Rounding] {q : ℚ} (q_nezero : q ≠ 0) (h : |q| 
   (round_rep q : FloatRep C).e ≤ C.emax :=
   round_max_e (round_function R) q_nezero C.emax h
 
-lemma roundrep_near_interval {q : ℚ} (q_nezero : q ≠ 0) :
+lemma roundf_near_close {q : ℚ} (q_nezero : q ≠ 0) :
   |q - coe_q (roundf roundnearest q : FloatRep C)| ≤ 2^(Int.log 2 |q| - 1) / C.prec := by
   wlog h : 0 < q generalizing q
   · have negq : -q ≠ 0 := neg_ne_zero.mpr q_nezero

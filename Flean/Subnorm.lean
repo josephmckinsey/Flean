@@ -325,3 +325,54 @@ lemma subnormal_up_minus_down (q : ℚ) :
   rw [add_comm, add_mul, add_div, one_mul] at this
   field_simp at this
   exact this
+
+lemma subnormal_round_neg (r : IntRounder) {q : ℚ} (h : q ≠ 0) :
+  subnormal_round r.neg (-q) = (subnormal_round (C := C) r q).neg := by
+  simp only [subnormal_round, SubnormRep.neg, IntRounder.neg]
+  congr 2
+  · simp [h.symm.le_iff_lt]
+  · simp [<-decide_not, h.le_iff_lt]
+  simp
+
+lemma subnormal_round_close (q : ℚ) :
+  |q - subnormal_to_q (subnormal_round (C := C) roundnearest q)| ≤ 2^(C.emin - 1) / C.prec := by
+  by_cases h : q = 0
+  · rw [h]
+    simp [subnormal_round, roundnearest, round_near_int, subnormal_to_q]
+    positivity
+  wlog h' : 0 < q generalizing q
+  · have negq : 0 < -q := by
+      apply lt_of_le_of_ne (by linarith)
+      exact (neg_ne_zero.mpr h).symm
+    replace this := this (q := -q) (by linarith) negq
+    rw [<-roundnearest_neg] at this
+    rw [subnormal_round_neg (h := h), subnormal_to_q_neg] at this
+    rw [neg_sub_neg, abs_sub_comm] at this
+    exact this
+  rw [subnormal_round, roundnearest]
+  have : ¬(q < 0) := by linarith
+  simp only [this, decide_false, ge_iff_le, subnormal_to_q, Bool.false_eq_true, ↓reduceIte, one_mul]
+  rw [Int.cast_natAbs]
+  rw [abs_of_pos h']
+  nth_rw 2 [abs_of_nonneg (by positivity)]
+  calc
+    |q - (round_near_int (q * 2 ^ (-C.emin) * ↑C.prec)) / ↑C.prec * 2 ^ C.emin| =
+      |q * 2^(-C.emin) * C.prec / C.prec * 2^C.emin - (round_near_int (q * 2 ^ (-C.emin) * ↑C.prec)) / ↑C.prec * 2 ^ C.emin| := by
+      rw [mul_div_cancel_right₀]
+      · rw [mul_assoc (c := 2^_)]
+        rw [zpow_neg, inv_mul_cancel₀ (by positivity), mul_one]
+      exact_mod_cast ne_of_gt C.prec_pos
+    _ = |q * 2^(-C.emin) * C.prec - (round_near_int (q * 2 ^ (-C.emin) * ↑C.prec))| / C.prec * 2^C.emin := by
+      rw [<-sub_mul, <-sub_div, abs_mul, abs_div,
+        abs_of_pos (a := 2^C.emin) (by positivity),
+        abs_of_pos (a := (C.prec : ℚ))]
+      exact_mod_cast C.prec_pos
+    _ ≤ 1 / 2 / C.prec * 2^C.emin := by
+      apply mul_le_mul_of_nonneg_right ?_ (by positivity)
+      apply div_le_div_of_nonneg_right
+      · rw [abs_sub_comm]
+        exact round_near_int_le (q * 2^(-C.emin) * C.prec)
+      exact_mod_cast le_of_lt C.prec_pos
+    _ = 2^(C.emin - 1) / C.prec := by
+      rw [zpow_sub₀ (by linarith)]
+      field_simp
