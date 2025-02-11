@@ -365,6 +365,11 @@ lemma neg_valid_rounder (r : IntRounder)  :
   intro h
   exact h.neg
 
+lemma roundnearest_neg :
+  IntRounder.neg roundnearest = roundnearest := by
+  funext s q
+  rw [IntRounder.neg, roundnearest, roundnearest]
+
 lemma round_eq_or (r : IntRounder) [rh : ValidRounder r] (b : Bool)
   {q : ℚ} (h : 0 ≤ q) :
   r b q = round0 b q ∨ r b q = roundinf b q := by

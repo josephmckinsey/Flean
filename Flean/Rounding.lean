@@ -504,3 +504,54 @@ lemma roundf_in_range (r : IntRounder) [rh : ValidRounder r] {q : ℚ} (q_nezero
 lemma round_rep_in_range [R : Rounding] {q : ℚ} (q_nezero : q ≠ 0) (h : |q| ≤ max_float_q C) :
   (round_rep q : FloatRep C).e ≤ C.emax :=
   round_max_e (round_function R) q_nezero C.emax h
+
+lemma roundrep_near_interval {q : ℚ} (q_nezero : q ≠ 0) :
+  |q - coe_q (roundf roundnearest q : FloatRep C)| ≤ 2^(Int.log 2 |q| - 1) / C.prec := by
+  wlog h : 0 < q generalizing q
+  · have negq : -q ≠ 0 := neg_ne_zero.mpr q_nezero
+    replace this := this negq ?_
+    · rw [<-roundnearest_neg, roundf_neg (h := q_nezero), coe_q_of_neg] at this
+      rw [abs_neg] at this
+      rw [neg_sub_neg, abs_sub_comm] at this
+      exact this
+    simp only [not_lt] at h
+    apply lt_of_le_of_ne
+    · rw [le_neg]
+      exact h
+    exact negq.symm
+  rw [roundf, coe_normalize _ (roundf_almost_valid roundnearest q q_nezero)]
+  set e := Int.log 2 |q| with e_def
+  set x := (|q| * (2^e)⁻¹ - 1) with x_def
+  rw [coe_q]
+  have : ¬(q < 0) := by exact not_lt_of_gt h
+  simp only [this, decide_false, Bool.false_eq_true, ↓reduceIte, one_mul, ge_iff_le]
+  rw [<-abs_of_pos h]
+  rw [show |q| = (1 + x)*(2^e) by rw [x_def]; field_simp]
+  rw [<-sub_mul, abs_mul]
+  rw [abs_of_pos (a := 2^e) (by positivity)]
+  have : ∀y, 1 + x  - (y + 1) = x - y := by intro y; ring
+  rw [this]
+  have : x = x * C.prec / C.prec := by
+    rw [mul_div_cancel_right₀]
+    apply ne_of_gt
+    exact_mod_cast C.prec_pos
+  nth_rw 1 [this]
+  rw [<-sub_div, abs_div]
+  rw [abs_of_pos (a := (C.prec : ℚ)) (by exact_mod_cast C.prec_pos)]
+  rw [abs_sub_comm]
+  have := round_near_int_le (x * C.prec)
+  rw [roundnearest, Int.cast_natAbs]
+  nth_rw 2 [abs_of_nonneg]
+  calc
+    |(round_near_int (x * C.prec)) - x * C.prec| / C.prec * 2^e ≤ 1 / 2 / C.prec * 2^e := by
+      apply mul_le_mul_of_nonneg_right
+      · apply div_le_div_of_nonneg_right
+        · exact this
+        apply le_of_lt
+        exact_mod_cast C.prec_pos
+      positivity
+    _ = 2^(e - 1) / C.prec := by
+      rw [zpow_sub₀ (by norm_num)]
+      field_simp
+  have xnonneg := mantissa_nonneg C q q_nezero
+  positivity
