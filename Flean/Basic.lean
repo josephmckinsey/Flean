@@ -587,15 +587,3 @@ lemma float_error' [R : Rounding] (q : ℚ) (h : |q| ≤ max_float_q C) :
 def DoubleCfg : FloatCfg := FloatCfg.mk (1 <<< 52) (-1022) 1023 (by norm_num) (
   Nat.zero_lt_succ 4503599627370495
 )
-
-
-def frep : FloatCfg := FloatCfg.mk 256 (-127) 127 (by norm_num) (by norm_num)
-
-def frep64 := FloatRep frep
-
---#eval ((@round_down frep 3.5) : frep64)
---#check (round_down 3.5 : frep64)
---#check (coe_q (⟨false, 0, 0⟩ : frep64))
---#eval @to_rat C (@to_float C 3.528123042)
---#eval @coe_q C (@round_down C 3.5)
---#eval @round_down C 0
