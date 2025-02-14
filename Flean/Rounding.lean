@@ -365,7 +365,7 @@ theorem floatrep_floor_le_q {q : ℚ} (q_nezero : q ≠ 0) :
   rw [add_comm]
   exact this
 
-lemma roundf_down_le (q : ℚ) (q_nezero : q ≠ 0) :
+lemma roundf_down_le {q : ℚ} (q_nezero : q ≠ 0) :
   coe_q (roundf rounddown (C := C) q) ≤ q := by
   rw [roundf, coe_normalize _ (roundf_almost_valid rounddown q q_nezero)]
   rw [coe_q]
@@ -383,7 +383,7 @@ lemma roundf_down_le (q : ℚ) (q_nezero : q ≠ 0) :
   apply floatrep_floor_le_q
   exact q_nezero
 
-lemma le_roundf_up (q : ℚ) (q_nezero : q ≠ 0) :
+lemma le_roundf_up {q : ℚ} (q_nezero : q ≠ 0) :
   q ≤ coe_q (roundf roundup (C := C) q) := by
   rw [roundf, coe_normalize _ (roundf_almost_valid roundup q q_nezero)]
   rw [coe_q]
@@ -504,6 +504,37 @@ lemma roundf_in_range (r : IntRounder) [rh : ValidRounder r] {q : ℚ} (q_nezero
 lemma round_rep_in_range [R : Rounding] {q : ℚ} (q_nezero : q ≠ 0) (h : |q| ≤ max_float_q C) :
   (round_rep q : FloatRep C).e ≤ C.emax :=
   round_max_e (round_function R) q_nezero C.emax h
+
+
+lemma roundf_eq_up_down (r : IntRounder) [rh : ValidRounder r] {q : ℚ} (q_nezero : q ≠ 0) :
+  roundf r q = roundf (C := C) rounddown q ∨
+  roundf r q = roundf (C := C) roundup q := by
+  unfold roundf
+  simp only
+  set exp := Int.log 2 |q| with exp_def
+  set x := (|q| * (2 ^ exp)⁻¹ - 1) * C.prec with x_def
+  have := round_eq_or' (r := r) (b := q < 0)
+      (q := x) (h := mantissa_nonneg C _ q_nezero)
+  rcases this with this | this
+  · simp [this]
+  simp [this]
+
+lemma roundf_close (r : IntRounder) [rh : ValidRounder r] {q : ℚ} (q_nezero : q ≠ 0) :
+  |q - coe_q (roundf (C := C) r q)| ≤ 2^(Int.log 2 |q|) / C.prec := by
+  apply le_trans (b := coe_q (roundf (C := C) roundup q) - coe_q (roundf (C := C) rounddown q))
+  rcases roundf_eq_up_down r q_nezero with h | h
+  · rw [h]
+    rw [abs_of_nonneg]
+    · rw [sub_le_sub_iff_right]
+      apply le_roundf_up q_nezero
+    rw [sub_nonneg]
+    apply roundf_down_le q_nezero
+  · rw [h, abs_sub_comm, abs_of_nonneg]
+    · rw [sub_le_sub_iff_left]
+      apply roundf_down_le q_nezero
+    rw [sub_nonneg]
+    apply le_roundf_up q_nezero
+  exact roundf_up_minus_down q_nezero
 
 lemma roundf_near_close {q : ℚ} (q_nezero : q ≠ 0) :
   |q - coe_q (roundf roundnearest q : FloatRep C)| ≤ 2^(Int.log 2 |q| - 1) / C.prec := by

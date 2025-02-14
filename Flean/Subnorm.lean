@@ -334,7 +334,35 @@ lemma subnormal_round_neg (r : IntRounder) {q : ℚ} (h : q ≠ 0) :
   · simp [<-decide_not, h.le_iff_lt]
   simp
 
-lemma subnormal_round_close (q : ℚ) :
+lemma subnormal_round_eq_up_down (r : IntRounder) [rh : ValidRounder r] (q : ℚ) :
+  subnormal_round r q = subnormal_round (C := C) rounddown q ∨
+  subnormal_round r q = subnormal_round (C := C) roundup q := by
+  unfold subnormal_round
+  set x := |q| * 2^(-C.emin) * C.prec
+  have := round_eq_or' (r := r) (b := q < 0)
+      (q := x) (h := by positivity)
+  rcases this with this | this
+  · simp [this]
+  simp [this]
+
+lemma subnormal_round_close (r : IntRounder) [rh : ValidRounder r] (q : ℚ) :
+  |q - subnormal_to_q (subnormal_round (C := C) r q)| ≤ 2^C.emin / C.prec := by
+  apply le_trans (b := subnormal_to_q (subnormal_round (C := C) roundup q) - subnormal_to_q (subnormal_round (C := C) rounddown q))
+  rcases subnormal_round_eq_up_down r q with h | h
+  · rw [h]
+    rw [abs_of_nonneg]
+    · rw [sub_le_sub_iff_right]
+      apply le_roundupsub
+    rw [sub_nonneg]
+    apply rounddownsub_le
+  · rw [h, abs_sub_comm, abs_of_nonneg]
+    · rw [sub_le_sub_iff_left]
+      apply rounddownsub_le
+    rw [sub_nonneg]
+    apply le_roundupsub
+  exact subnormal_up_minus_down q
+
+lemma subnormal_near_close (q : ℚ) :
   |q - subnormal_to_q (subnormal_round (C := C) roundnearest q)| ≤ 2^(C.emin - 1) / C.prec := by
   by_cases h : q = 0
   · rw [h]

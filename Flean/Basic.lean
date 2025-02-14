@@ -546,7 +546,7 @@ lemma float_eq_up_or_down [R : Rounding] (q : ℚ) :
   simp_rw [h']
   simp [x_def, round_function]
 
-lemma float_error [R : Rounding] (q : ℚ) (h : (to_float_down (C := C) q).IsFinite) (h' : (to_float_up (C := C) q).IsFinite) :
+lemma float_error_old [R : Rounding] (q : ℚ) (h : (to_float_down (C := C) q).IsFinite) (h' : (to_float_up (C := C) q).IsFinite) :
   |to_rat (to_float (C := C) q) - q| ≤ max ((2 : ℚ)^C.emin / C.prec) (2 ^ (Int.log 2 |q|) / C.prec) := by
   apply le_trans (b := to_rat (to_float_up (C := C) q) - to_rat (to_float_down (C := C) q))
   · rcases float_eq_up_or_down q with h'' | h'' <;> rw [h'']
@@ -563,6 +563,19 @@ lemma float_error [R : Rounding] (q : ℚ) (h : (to_float_down (C := C) q).IsFin
     rw [sub_nonneg]
     apply le_float_up (C := C) (h := h')
   apply float_up_minus_down (C := C) q h h'
+
+lemma float_error [R : Rounding] (q : ℚ) (h : (to_float (C := C) q).IsFinite) :
+  |to_rat (to_float (C := C) q) - q| ≤ max ((2 : ℚ)^C.emin / C.prec) (2 ^ (Int.log 2 |q|) / C.prec) := by
+  rw [abs_sub_comm]
+  rcases splitIsFinite (h := h) with ⟨q_small, h⟩ | ⟨q_large, h⟩
+  · rw [h]
+    apply le_sup_of_le_left
+    apply subnormal_round_close (round_function R) q
+  rw [h]
+  apply le_sup_of_le_right
+  apply roundf_close (round_function R)
+  apply abs_pos.mp
+  linarith [show 0 < (2:ℚ) ^ C.emin by positivity]
 
 lemma to_float_in_range [R : Rounding] {q : ℚ} (h : |q| ≤ max_float_q C) :
   (to_float q : Flean.Float C).IsFinite := by
@@ -589,8 +602,7 @@ lemma to_float_in_range [R : Rounding] {q : ℚ} (h : |q| ≤ max_float_q C) :
 lemma float_error' [R : Rounding] (q : ℚ) (h : |q| ≤ max_float_q C) :
   |to_rat (to_float (C := C) q) - q| ≤ max ((2 : ℚ)^C.emin / C.prec) (2 ^ (Int.log 2 |q|) / C.prec) := by
   apply float_error
-  · apply to_float_in_range (R := .mk (.down)) h
-  apply to_float_in_range (R := .mk (.up)) h
+  apply to_float_in_range h
 
 lemma float_nearest_error (q : ℚ) (h : (to_float_nearest (C := C) q).IsFinite) :
   |q - to_rat (to_float_nearest (C := C) q)| ≤ max ((2 : ℚ) ^ (Int.log 2 |q| - 1) / C.prec) (2 ^ (C.emin - 1) / C.prec) := by
@@ -598,7 +610,7 @@ lemma float_nearest_error (q : ℚ) (h : (to_float_nearest (C := C) q).IsFinite)
   rcases splitIsFinite (R := .mk (.nearest)) (h := h) with ⟨q_small, h⟩ | ⟨q_large, h⟩
   · rw [h]
     apply le_sup_of_le_right
-    apply subnormal_round_close
+    apply subnormal_near_close
   rw [h]
   apply le_sup_of_le_left
   apply roundf_near_close
