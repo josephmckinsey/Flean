@@ -4,30 +4,44 @@ import Mathlib.Analysis.SpecialFunctions.Log.Base
 import Mathlib.Data.Int.Log
 import Flean.FloatCfg
 
+/-!
+# Logarithmic Properties of Scientific Notation for Floating-Point
+This module proves facts in ℚ about the sizes and properties of
+values like x * b^e where x is in [1, b) and e is an integer.
+-/
+
 variable {C : FloatCfg}
 
+/--For 1 ≤ x, (x * b^e) has an exponent at least e.-/
 lemma le_log_of_ge_1 {b : ℕ} {e : ℤ} (h : 1 < b) {x : ℚ} (h' : 1 ≤ x) :
   e ≤ Int.log b (x * b ^ e) := by
   suffices b^e ≤ x * b^e by
+    -- Use the b^x ≤ y connection between log and zpow
     apply (Int.zpow_le_iff_le_log (b := b) h (by positivity)).1
     exact this
+  -- then, it's linear arithmetic
   nth_rw 1 [<-one_mul ((b : ℚ)^e)]
   exact (mul_le_mul_iff_left₀ (zpow_pos (by positivity) e)).mpr h'
 
+/--When 1 ≤ x < 2, x*b^e has exponent exactly e.-/
 lemma log_one_to_two_eq {b : ℕ} {e : ℤ} (h : 1 < b) {x : ℚ} (h' : 1 ≤ x) (h'' : x < b) :
   Int.log b (x * b ^ e) = e := by
   have bpos : (0 : ℚ) < b := by norm_cast; linarith
   have x_be_pos : 0 < x * b^e := mul_pos (by linarith) (zpow_pos bpos e)
   apply le_antisymm
-  · suffices x * b^e < b^(e + 1) by
+  · -- Since log rounds down...
+    suffices x * b^e < b^(e + 1) by
+      -- Then we can use the x < b^y connection.
       have : Int.log b (x * b^e) < e + 1 := by
         apply (Int.lt_zpow_iff_log_lt (b := b) h (x_be_pos)).1
         exact this
       linarith
+    -- Basic factoring and linear arithmetic
     rw [zpow_add_one₀ (by linarith), mul_comm]
     exact (mul_lt_mul_iff_right₀ (zpow_pos bpos e)).mpr h''
   exact le_log_of_ge_1 h h'
 
+/--When 0 < x < 1, then x*2^e has exponent < e.-/
 lemma log_zero_to_one_lt (x : ℚ) (e : ℤ) (h : 0 < x) (h' : x < 1) :
   Int.log 2 |x * 2 ^ e| < e := by
   rw [<-Int.lt_zpow_iff_log_lt (by norm_num)]
