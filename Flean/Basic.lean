@@ -203,7 +203,7 @@ lemma float_range (f : Flean.Float C) :
       apply zpow_lt_zpow_right₀ (by norm_num) C.emin_lt_emax
 
 
-lemma to_floar_to_rat [R : Rounding] (f : Flean.Float C) (finite : f.IsFinite) (nonzero : ¬f.IsZero) :
+lemma to_float_to_rat [R : Rounding] (f : Flean.Float C) (finite : f.IsFinite) (nonzero : ¬f.IsZero) :
   to_float (to_rat f) = f := by
   simp [Flean.Float.IsFinite] at finite
   --simp [Flean.Float.IsZero] at nonzero
