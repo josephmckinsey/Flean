@@ -526,10 +526,10 @@ lemma float_eq_up_or_down [R : Rounding] (q : ℚ) :
     simp_rw [subnormal_round]
     rcases this with h' | h'
     · left
-      simp_rw [h']
+      simp_rw [<-x_def, h']
       simp [x_def, round_function]
     right
-    simp_rw [h']
+    simp_rw [<-x_def, h']
     simp [x_def, round_function]
   simp only
   set x := ((|q| * (2 ^ Int.log 2 |q|)⁻¹ - 1) * ↑C.prec) with x_def
@@ -540,10 +540,10 @@ lemma float_eq_up_or_down [R : Rounding] (q : ℚ) :
   simp_rw [roundf]
   rcases this with h' | h'
   · left
-    simp_rw [h']
+    simp_rw [<-x_def, h']
     simp [x_def, round_function]
   right
-  simp_rw [h']
+  simp_rw [<-x_def, h']
   simp [x_def, round_function]
 
 lemma float_error_old [R : Rounding] (q : ℚ) (h : (to_float_down (C := C) q).IsFinite) (h' : (to_float_up (C := C) q).IsFinite) :
