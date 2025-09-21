@@ -12,7 +12,7 @@ lemma le_log_of_ge_1 {b : ℕ} {e : ℤ} (h : 1 < b) {x : ℚ} (h' : 1 ≤ x) :
     apply (Int.zpow_le_iff_le_log (b := b) h (by positivity)).1
     exact this
   nth_rw 1 [<-one_mul ((b : ℚ)^e)]
-  exact (mul_le_mul_right (zpow_pos (by positivity) e)).mpr h'
+  exact (mul_le_mul_iff_left₀ (zpow_pos (by positivity) e)).mpr h'
 
 lemma log_one_to_two_eq {b : ℕ} {e : ℤ} (h : 1 < b) {x : ℚ} (h' : 1 ≤ x) (h'' : x < b) :
   Int.log b (x * b ^ e) = e := by
@@ -25,7 +25,7 @@ lemma log_one_to_two_eq {b : ℕ} {e : ℤ} (h : 1 < b) {x : ℚ} (h' : 1 ≤ x)
         exact this
       linarith
     rw [zpow_add_one₀ (by linarith), mul_comm]
-    exact (mul_lt_mul_left (zpow_pos bpos e)).mpr h''
+    exact (mul_lt_mul_iff_right₀ (zpow_pos bpos e)).mpr h''
   exact le_log_of_ge_1 h h'
 
 lemma log_zero_to_one_lt (x : ℚ) (e : ℤ) (h : 0 < x) (h' : x < 1) :

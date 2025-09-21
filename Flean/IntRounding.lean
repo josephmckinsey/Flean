@@ -77,15 +77,15 @@ lemma round_near_le_round_near {q1 q2 : ℚ} (h : q1 ≤ q2) :
     simp only [h1, ↓reduceIte, h2, this, not_lt_of_gt this]
     exact Int.ceil_le_ceil h
   else
-    have fract_eq : Int.fract q1 = 1/2 := le_antisymm (le_of_not_lt h2) (le_of_not_lt h1)
+    have fract_eq : Int.fract q1 = 1/2 := le_antisymm (le_of_not_gt h2) (le_of_not_gt h1)
     simp only [fract_eq]
     rcases lt_or_eq_of_le this with h' | h'
     · simp [fract_eq] at *
-      simp only [h', not_lt_of_ge (le_of_lt h'), lt_self_iff_false, ↓reduceIte, ge_iff_le]
+      simp only [h', not_lt_of_ge (le_of_lt h'), ↓reduceIte]
       split_ifs
       · exact floor_le_ceil
       exact Int.ceil_le_ceil h
-    simp only [<-h', fract_eq, ge_iff_le, le_refl, ↓reduceIte, lt_self_iff_false, ↓reduceIte]
+    simp only [<-h', fract_eq, ge_iff_le, ↓reduceIte, lt_self_iff_false, ↓reduceIte]
     suffices ⌊q1⌋ = ⌊q2⌋ by
       rw [this]
       split_ifs <;> simp [Int.ceil_le_ceil h]
@@ -147,10 +147,10 @@ lemma round_near_int_le (q : ℚ) :
     rw [fract_eq_ceil_of_pos] at h2
     · linarith
     linarith
-  · have : Int.fract q = 1/2 := le_antisymm (le_of_not_lt h2) (le_of_not_lt h1)
+  · have : Int.fract q = 1/2 := le_antisymm (le_of_not_gt h2) (le_of_not_gt h1)
     rw [abs_sub_comm, Int.self_sub_floor, abs_of_nonneg (Int.fract_nonneg q)]
     rw [this]
-  have : Int.fract q = 1/2 := le_antisymm (le_of_not_lt h2) (le_of_not_lt h1)
+  have : Int.fract q = 1/2 := le_antisymm (le_of_not_gt h2) (le_of_not_gt h1)
   rw [abs_of_nonneg (by linarith [Int.le_ceil q])]
   rw [fract_eq_ceil_of_pos] at this
   · linarith
@@ -168,8 +168,8 @@ lemma round_near_add_half (z : ℤ) (h : z % 2 = 0) :
   have : Int.fract (1 / 2 : ℚ) = 1/2 := by
     exact Int.fract_div_intCast_eq_div_intCast_mod
   rw [one_div] at this
-  simp only [one_div, Int.fract_int_add, this, lt_self_iff_false, ↓reduceIte,
-    Int.floor_int_add]
+  simp only [one_div, Int.fract_intCast_add, this, lt_self_iff_false, ↓reduceIte,
+    Int.floor_intCast_add]
   have : ⌊(2⁻¹ : ℚ)⌋ = 0 := by norm_num
   rw [this, <-h]
   simp [h]
@@ -185,8 +185,8 @@ lemma round_near_sub_half (z : ℤ) (h : z % 2 = 0) :
     rw [this]
     norm_num
   rw [sub_eq_add_neg]
-  simp only [Int.fract_int_add, this, lt_self_iff_false, ↓reduceIte]
-  rw [add_comm, Int.ceil_add_int]
+  simp only [Int.fract_intCast_add, this, lt_self_iff_false, ↓reduceIte]
+  rw [add_comm, Int.ceil_add_intCast]
   have : ⌈(-(1 / 2) : ℚ)⌉ = 0 := by norm_num
   rw [this, zero_add, if_neg]
   rw [add_comm]
@@ -202,11 +202,11 @@ lemma round_of_add_half (z : ℤ) :
   round_near_int (z + 1/2) % 2 = 0 := by
   rw [round_near_int]
   have : Int.fract (z + 1/2 : ℚ) = 1/2 := by
-    rw [Int.fract_int_add]
+    rw [Int.fract_intCast_add]
     norm_num
   rw [this]
-  simp only [lt_self_iff_false, ↓reduceIte, Int.floor_int_add]
-  rw [add_comm (z : ℚ), Int.ceil_add_int]
+  simp only [lt_self_iff_false, ↓reduceIte, Int.floor_intCast_add]
+  rw [add_comm (z : ℚ), Int.ceil_add_intCast]
   rw [show ⌊(1 : ℚ)/2⌋ = 0 by norm_num, add_zero]
   split_ifs with h
   · assumption
@@ -320,7 +320,7 @@ instance : ValidRounder roundup where
     cases s <;> simp <;> apply ValidRounder.le_iff_le
   leftInverse s := by
     unfold roundup
-    cases s <;> simp [roundup] <;> apply ValidRounder.leftInverse
+    cases s <;> simp <;> apply ValidRounder.leftInverse
 
 
 instance : ValidRounder rounddown where
@@ -329,7 +329,7 @@ instance : ValidRounder rounddown where
     cases s <;> simp <;> apply ValidRounder.le_iff_le
   leftInverse s := by
     unfold rounddown
-    cases s <;> simp [roundup] <;> apply ValidRounder.leftInverse
+    cases s <;> simp <;> apply ValidRounder.leftInverse
 
 instance : ValidRounder roundnearest where
   le_iff_le s q1 q2 q1h q1le := by

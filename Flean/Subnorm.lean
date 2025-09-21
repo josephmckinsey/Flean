@@ -128,7 +128,7 @@ lemma subnormal_round_le_of_le (r : IntRounder) [rh : ValidRounder r] (q1 q2 : �
     simp only [lt_self_iff_false, decide_false, abs_zero, zpow_neg, zero_mul]
     rw [show (0 : ℚ) = ↑(0 : ℕ) by rfl, rh.leftInverse false]
     rw [subnormal_to_q, subnormal_to_q, subnormal_round]
-    simp only [↓reduceIte, CharP.cast_eq_zero, zero_div, mul_zero, zero_mul]
+    simp only [CharP.cast_eq_zero, zero_div, mul_zero, zero_mul]
     have : decide (q1 < 0) = true := by
       apply decide_eq_true
       apply lt_of_le_of_ne ?_ h1
@@ -230,7 +230,7 @@ lemma rounddownsub_le (q : ℚ) :
     rw [<-abs_of_pos (a := -q) (Left.neg_pos_iff.mpr h)]
     rw [abs_neg]
     rw [Nat.cast_natAbs]
-    simp only [Int.cast_abs, ge_iff_le]
+    simp only [Int.cast_abs]
     rw [abs_of_neg, abs_of_pos]
     · rw [<-div_eq_mul_inv]
       rw [div_mul]--, <-div_le_div_iff_of_pos_right t3]
@@ -244,7 +244,7 @@ lemma rounddownsub_le (q : ℚ) :
       exact Left.neg_pos_iff.mpr h
     exact h
   simp only [h, decide_false, Bool.false_eq_true, ↓reduceIte, zpow_neg, one_mul]
-  replace h := le_of_not_lt h
+  replace h := le_of_not_gt h
   rw [round0, abs_of_nonneg h, Nat.cast_natAbs]
   rw [abs_of_nonneg]
   · rw [<-div_eq_mul_inv]
@@ -281,7 +281,7 @@ lemma le_roundupsub (q : ℚ) :
     exact_mod_cast C.prec_pos
   rw [roundup]
   simp only [h, decide_false, Bool.false_eq_true, ↓reduceIte, zpow_neg, one_mul, ge_iff_le]
-  replace h := le_of_not_lt h
+  replace h := le_of_not_gt h
   rw [roundinf, abs_of_nonneg h, Nat.cast_natAbs]
   rw [abs_of_nonneg]
   · rw [<-div_eq_mul_inv]
@@ -319,10 +319,11 @@ lemma subnormal_up_minus_down (q : ℚ) :
     positivity
   qify at this
   apply h.monotone at this
+  -- This is especially brittle
   simp at this
   field_simp at this
   field_simp
-  rw [add_comm, add_mul, add_div, one_mul] at this
+  rw [add_comm, mul_add, add_div, mul_one] at this
   field_simp at this
   exact this
 

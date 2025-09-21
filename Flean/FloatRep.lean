@@ -36,7 +36,7 @@ lemma coe_q_false_pos {e : ℤ} {m : ℕ} :
   suffices ((m : ℚ) / C.prec + 1) > 0 by
     exact mul_pos this (zpow_pos (by norm_num) e)
   calc
-    (0 : ℚ) ≤ m / C.prec := by simp [div_nonneg, Nat.cast_nonneg']
+    (0 : ℚ) ≤ m / C.prec := by simp [div_nonneg]
     _ < m/C.prec + 1 := lt_add_one _
 
 def FloatRep.neg {C  : FloatCfg} : FloatRep C → FloatRep C
@@ -68,7 +68,7 @@ lemma neg_true (e : ℤ) (m : ℕ) : ⟨false, e, m⟩ = (FloatRep.neg ⟨true, 
 lemma coe_q_true_neg {e : ℤ} {m : ℕ} :
   coe_q (⟨true, e, m⟩ : FloatRep C) < 0 := by
   rw [neg_false, coe_q_of_neg]
-  simp only [Left.neg_neg_iff, gt_iff_lt, coe_q_false_pos]
+  simp only [Left.neg_neg_iff, coe_q_false_pos]
 
 lemma coe_q_nezero {f : FloatRep C} :
   coe_q f ≠ 0 := by
@@ -163,7 +163,7 @@ lemma normal_range (f : FloatRep C) (ve : f.valid_e) (vm : f.valid_m) :
   intro e m ve vm
   rw [coe_q]
   constructor
-  <;> simp only [Bool.false_eq_true, ↓reduceIte, one_mul, neg_one_mul, neg_mul, abs_neg, q_exp_eq_exp vm]
+  <;> simp only [Bool.false_eq_true, ↓reduceIte, one_mul, q_exp_eq_exp vm]
   · exact ve.1
   exact ve.2
 
@@ -283,7 +283,7 @@ lemma coe_q_le_floatrep_pos (f1 f2 : FloatRep C) (vm2 : f2.valid_m) :
   simp only [FloatRep.valid_m, coe_q] at *
   intro e_eq
   rw [e_eq] at h
-  simp only [Bool.false_eq_true, ↓reduceIte, one_mul, neg_mul, neg_add_rev] at h
+  simp only [Bool.false_eq_true, ↓reduceIte, one_mul] at h
   have := C.prec_pos
   rw [abs_of_pos (by positivity), abs_of_pos (by positivity)] at h
   suffices (m : ℚ) / C.prec ≤ (m' : ℚ) / C.prec by

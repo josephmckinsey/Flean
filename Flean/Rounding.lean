@@ -58,10 +58,10 @@ lemma roundf_neg (r : IntRounder) {q : ℚ}
   apply congrArg FloatRep.normalize
   by_cases h' : q ≥ 0
   · have : q > 0 := lt_of_le_of_ne h' (Ne.symm h)
-    simp only [roundf, Left.neg_neg_iff, this, decide_true, abs_neg, IntRounder.neg, Bool.not_true,
-      zpow_neg, FloatRep.neg, decide_eq_false h'.not_lt, Bool.not_false]
+    simp only [Left.neg_neg_iff, this, decide_true, abs_neg, IntRounder.neg, Bool.not_true,
+      FloatRep.neg, decide_eq_false h'.not_gt, Bool.not_false]
   have : q < 0 := not_le.mp h'
-  simp [roundf, IntRounder.neg, decide_eq_false, FloatRep.neg, this, le_of_lt this]
+  simp [IntRounder.neg, decide_eq_false, FloatRep.neg, this, le_of_lt this]
 
 lemma round_symmetry₁ (P : (r : IntRounder) → FloatRep C → Prop)
   (h1 : ∀ r f, P (r.neg) (FloatRep.neg f) → P r f)
@@ -79,13 +79,11 @@ lemma roundf_coe (r : IntRounder) [rh : ValidRounder r]
   roundf r (coe_q f) = f := by
   revert h rh
   apply round_symmetry₁ (r := r) (f := f)
-  · intro r
-    intro f
+  · intro r f
     rw [coe_q_of_neg, neg_valid_rounder, neg_valid_m, roundf_neg r coe_q_nezero, neg_invertible.injective.eq_iff]
     tauto
   intro r e m rh h
-  simp only [roundf, FloatRep.normalize, coe_q, Bool.false_eq_true, ↓reduceIte, one_mul, zpow_neg, FloatRep.mk.injEq,
-    decide_eq_false_iff_not, not_lt]
+  simp only [roundf, FloatRep.normalize, coe_q, Bool.false_eq_true, ↓reduceIte, one_mul]
   rw [q_mantissa_eq_mantissa h, add_sub_cancel_right,
     div_mul_cancel₀, ValidRounder.leftInverse (f := r)]
   split_ifs with h'
@@ -345,6 +343,7 @@ theorem q_le_floatrep_ceil {q : ℚ} (h : q ≠ 0) :
   rw [mul_div_cancel_right₀ _ (ne_of_lt c_pos).symm] at this
   field_simp at this
   field_simp
+  rw [add_sub_cancel] at this -- why is this necessary?
   exact this
 
 theorem floatrep_floor_le_q {q : ℚ} (q_nezero : q ≠ 0) :
@@ -361,6 +360,7 @@ theorem floatrep_floor_le_q {q : ℚ} (q_nezero : q ≠ 0) :
   dsimp at this
   rw [mul_div_cancel_right₀ _ (ne_of_lt c_pos).symm] at this
   field_simp at this
+  rw [add_sub_cancel] at this -- why is this necessary??
   field_simp
   rw [add_comm]
   exact this
@@ -374,8 +374,10 @@ lemma roundf_down_le {q : ℚ} (q_nezero : q ≠ 0) :
     rw [<-neg_add, neg_mul, neg_le]
     rw [<-abs_of_neg h]
     simp [rounddown, roundinf]
-    apply q_le_floatrep_ceil
-    exact q_nezero
+    have := q_le_floatrep_ceil q_nezero (C := C)
+    -- TODO: q_le_floatrep_ceil has the wrong form
+    simp only [Nat.cast_natAbs, Int.cast_abs] at this
+    exact this
   simp [h]
   simp at h
   nth_rw 4 [<-abs_of_nonneg h]
@@ -393,15 +395,18 @@ lemma le_roundf_up {q : ℚ} (q_nezero : q ≠ 0) :
     rw [<-abs_of_neg h]
     simp [roundup, round0]
     rw [add_comm]
-    apply floatrep_floor_le_q
-    exact q_nezero
+    -- TODO: floatrep_floor_le_q
+    have := floatrep_floor_le_q q_nezero (C := C)
+    simp at this
+    exact this
   simp [h]
   simp at h
   nth_rw 1 [<-abs_of_nonneg h]
   simp [roundup, roundinf]
   rw [add_comm]
-  apply q_le_floatrep_ceil
-  exact q_nezero
+  have := q_le_floatrep_ceil q_nezero (C := C)
+  simp at this
+  exact this
 
 lemma roundf_up_minus_down {q : ℚ} (q_nezero : q ≠ 0) :
   coe_q (roundf (C := C) roundup q) -
@@ -457,7 +462,7 @@ lemma round_max_e (r : IntRounder) [rh : ValidRounder r] {q : ℚ} (q_nezero : q
   · have negq : 0 < -q := by
       rw [lt_neg]
       apply lt_of_le_of_ne
-      · exact le_of_not_lt h'
+      · exact le_of_not_gt h'
       exact q_nezero
     replace this := this r.neg (rh := rh.neg) (q := -q)
       (neg_ne_zero.mpr q_nezero) (by simpa) negq
@@ -557,7 +562,7 @@ lemma roundf_near_close {q : ℚ} (q_nezero : q ≠ 0) :
   have : ¬(q < 0) := by exact not_lt_of_gt h
   simp only [this, decide_false, Bool.false_eq_true, ↓reduceIte, one_mul, ge_iff_le]
   rw [<-abs_of_pos h]
-  rw [show |q| = (1 + x)*(2^e) by rw [x_def]; field_simp]
+  rw [show |q| = (1 + x)*(2^e) by rw [x_def]; field_simp; simp] -- weird that I need both
   rw [<-sub_mul, abs_mul]
   rw [abs_of_pos (a := 2^e) (by positivity)]
   have : ∀y, 1 + x  - (y + 1) = x - y := by intro y; ring

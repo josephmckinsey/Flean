@@ -86,8 +86,7 @@ lemma subnorm_eq_0_iff_to_q (sm : SubnormRep C) :
   <;> {
     simp at h'
     rw [h']
-    simp only [Bool.false_eq_true, ↓reduceIte, one_mul,
-      Nat.cast_eq_zero, not_or]
+    simp only [Bool.false_eq_true, ↓reduceIte, one_mul]
     have := C.prec_pos
     positivity
   }
@@ -131,7 +130,7 @@ lemma subnormal_range (f : SubnormRep C) (vm : f.m < C.prec) (ne_zero : f.nonzer
 
 def max_float (C : FloatCfg) : Flean.Float C := by
   refine Flean.Float.normal (max_float_rep C) ?_ ?_
-  · simp [max_float_rep, FloatRep.valid_e, FloatRep.valid_m, le_of_lt C.emin_lt_emax]
+  · simp [max_float_rep, FloatRep.valid_e, le_of_lt C.emin_lt_emax]
   simp [max_float_rep, FloatRep.valid_m, C.prec_pos]
 
 lemma to_rat_max_float :
@@ -295,7 +294,7 @@ lemma splitIsFinite [R : Rounding] {q : ℚ}
     · rw [i1, abs_zero]
       positivity
     rw [f_def, i1, roundsub, roundsub_zero]
-    simp [to_float, to_rat, subnormal_to_q]
+    simp [to_rat, subnormal_to_q]
   · left
     constructor
     · apply le_of_lt
@@ -473,13 +472,12 @@ lemma to_float_boundary (R : Rounding) {q : ℚ} (h : |q| = 2^C.emin) :
     simp_rw [logemin]
     simp only [ne0, ↓reduceDIte, lt_self_iff_false, gt_iff_lt]
     simp_rw [roundrep_emin]
-    simp [C.emin_lt_emax.not_lt, to_rat, coe_q]
+    simp [C.emin_lt_emax.not_gt, to_rat, coe_q]
   rw [h, to_float]
   simp_rw [neg_eq_zero, abs_neg]
   simp_rw [logemin]
   simp_rw [roundrep_neg_emin]
-  simp [ne0, C.emin_lt_emax, C.emin_lt_emax.not_lt]
-  simp [C.emin_lt_emax.not_lt, to_rat, coe_q]
+  simp [ne0, C.emin_lt_emax.not_gt, to_rat, coe_q]
 
 lemma float_up_minus_down (q : ℚ) (h : (to_float_down (C := C) q).IsFinite)
   (h' : (to_float_up (C := C) q).IsFinite) :
@@ -516,7 +514,7 @@ lemma float_eq_up_or_down [R : Rounding] (q : ℚ) :
   by_cases q_nezero : q = 0
   · left
     rw [q_nezero]
-    simp [to_float, to_float_down, subnormal_to_q]
+    simp [to_float, to_float_down]
   unfold to_float_down to_float_up to_float roundsub round_rep
   split_ifs with h1
   · simp only
@@ -585,7 +583,7 @@ lemma to_float_in_range [R : Rounding] {q : ℚ} (h : |q| ≤ max_float_q C) :
   have := log_lt_emax_of_max_float q_nezero h
   rw [Flean.Float.IsFinite]
   · rw [to_float]
-    simp [q_nezero, this.not_lt]
+    simp [q_nezero]
     split_ifs with h1 h2 h3
     · simp
     · simp
