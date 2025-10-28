@@ -360,10 +360,8 @@ theorem floatrep_floor_le_q {q : ℚ} (q_nezero : q ≠ 0) :
   dsimp at this
   rw [mul_div_cancel_right₀ _ (ne_of_lt c_pos).symm] at this
   field_simp at this
-  rw [add_sub_cancel] at this -- why is this necessary??
   field_simp
-  rw [add_comm]
-  exact this
+  linarith
 
 lemma roundf_down_le {q : ℚ} (q_nezero : q ≠ 0) :
   coe_q (roundf rounddown (C := C) q) ≤ q := by

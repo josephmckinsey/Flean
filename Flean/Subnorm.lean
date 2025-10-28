@@ -235,7 +235,7 @@ lemma rounddownsub_le (q : ℚ) :
     · rw [<-div_eq_mul_inv]
       rw [div_mul]--, <-div_le_div_iff_of_pos_right t3]
       rw [le_div_iff₀ t3]
-      field_simp
+      rw [mul_div, mul_div_right_comm]
       apply Int.le_ceil
     · norm_cast
       apply Int.lt_ceil.mpr
@@ -250,7 +250,7 @@ lemma rounddownsub_le (q : ℚ) :
   · rw [<-div_eq_mul_inv]
     rw [div_mul]
     rw [div_le_iff₀ t3]
-    field_simp
+    rw [mul_div, mul_div_right_comm]
     apply Int.floor_le
   positivity
 
@@ -268,7 +268,7 @@ lemma le_roundupsub (q : ℚ) :
     · rw [<-div_eq_mul_inv]
       rw [div_mul]--, <-div_le_div_iff_of_pos_right t3]
       rw [div_le_iff₀ (div_pos t1 (by positivity))]
-      field_simp
+      rw [mul_div, mul_div_right_comm]
       apply Int.floor_le
     norm_cast
     apply Int.le_floor.mpr
@@ -287,7 +287,7 @@ lemma le_roundupsub (q : ℚ) :
   · rw [<-div_eq_mul_inv]
     rw [div_mul]--, <-div_le_div_iff_of_pos_right t3]
     rw [le_div_iff₀ (div_pos t1 (by positivity))]
-    field_simp
+    rw [mul_div, mul_div_right_comm]
     apply Int.le_ceil
   positivity
 
@@ -323,8 +323,7 @@ lemma subnormal_up_minus_down (q : ℚ) :
   simp at this
   field_simp at this
   field_simp
-  rw [add_comm, mul_add, add_div, mul_one] at this
-  field_simp at this
+  rw [add_comm] at this
   exact this
 
 lemma subnormal_round_neg (r : IntRounder) {q : ℚ} (h : q ≠ 0) :
