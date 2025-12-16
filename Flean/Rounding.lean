@@ -330,7 +330,7 @@ lemma convert_rep_strict_mono (q : ℚ) :
 
 theorem q_le_floatrep_ceil {q : ℚ} (h : q ≠ 0) :
   |q| ≤ (1 + ⌈(|q| * ((2 : ℚ) ^ Int.log 2 |q|)⁻¹ - 1) * C.prec⌉.natAbs / ↑C.prec) * 2 ^ Int.log 2 |q| := by
-  rw [Int.cast_natAbs]
+  rw [Nat.cast_natAbs]
   nth_rw 2 [abs_of_nonneg ?mantissa]
   case mantissa =>
     apply Int.ceil_nonneg
@@ -348,7 +348,7 @@ theorem q_le_floatrep_ceil {q : ℚ} (h : q ≠ 0) :
 
 theorem floatrep_floor_le_q {q : ℚ} (q_nezero : q ≠ 0) :
   (⌊(|q| * (2 ^ Int.log 2 |q|)⁻¹ - 1) * ↑C.prec⌋.natAbs / ↑C.prec + 1) * 2 ^ Int.log 2 |q| ≤ |q| := by
-  rw [Int.cast_natAbs]
+  rw [Nat.cast_natAbs]
   nth_rw 1 [abs_of_nonneg ?mantissa]
   case mantissa =>
     apply Int.floor_nonneg.mpr
@@ -434,8 +434,8 @@ lemma roundf_up_minus_down {q : ℚ} (q_nezero : q ≠ 0) :
   qify at this
   apply (convert_rep_strict_mono (C := C) q).monotone at this
   simp at this
-  rw [Int.cast_natAbs, abs_of_nonneg, add_comm]
-  rw [Int.cast_natAbs]
+  rw [Nat.cast_natAbs, abs_of_nonneg, add_comm]
+  rw [Nat.cast_natAbs]
   nth_rw 5 [abs_of_nonneg]
   convert this using 1
   · ring
@@ -574,7 +574,7 @@ lemma roundf_near_close {q : ℚ} (q_nezero : q ≠ 0) :
   rw [abs_of_pos (a := (C.prec : ℚ)) (by exact_mod_cast C.prec_pos)]
   rw [abs_sub_comm]
   have := round_near_int_le (x * C.prec)
-  rw [roundnearest, Int.cast_natAbs]
+  rw [roundnearest, Nat.cast_natAbs]
   nth_rw 2 [abs_of_nonneg]
   calc
     |(round_near_int (x * C.prec)) - x * C.prec| / C.prec * 2^e ≤ 1 / 2 / C.prec * 2^e := by

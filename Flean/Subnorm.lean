@@ -307,7 +307,7 @@ lemma subnormal_up_minus_down (q : ℚ) :
   have h' : ¬(q < 0) := by linarith
   simp only [h', decide_false, Bool.false_eq_true, ↓reduceIte, zpow_neg, one_mul, tsub_le_iff_right,
     ge_iff_le]
-  rw [Int.cast_natAbs, Int.cast_natAbs]
+  rw [Nat.cast_natAbs, Nat.cast_natAbs]
   rw [abs_of_nonneg (by positivity)]
   nth_rw 2 [abs_of_nonneg (by positivity)]
   have := Int.ceil_le_floor_add_one (|q| * ((2 : ℚ)^C.emin)⁻¹ * C.prec)
@@ -380,7 +380,7 @@ lemma subnormal_near_close (q : ℚ) :
   rw [subnormal_round, roundnearest]
   have : ¬(q < 0) := by linarith
   simp only [this, decide_false, ge_iff_le, subnormal_to_q, Bool.false_eq_true, ↓reduceIte, one_mul]
-  rw [Int.cast_natAbs]
+  rw [Nat.cast_natAbs]
   rw [abs_of_pos h']
   nth_rw 2 [abs_of_nonneg (by positivity)]
   calc
