@@ -1,5 +1,7 @@
 # Flean
 
+> Note: I am working on a rewrite at [`josephmckinsey/flean2`](https://github.com/josephmckinsey/flean2).
+
 Flean is an attempt at formalizing floating point numbers in Lean 4.
 
 ![Look what they need to match a fraction](meme.png)
